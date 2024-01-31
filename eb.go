@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -675,16 +676,9 @@ type Meta struct {
 }
 
 func MdMeta(md []byte) (meta Meta, err error) {
-	metaStart := bytes.Index(md, []byte("---"))
-	if metaStart == -1 {
-		return
-	}
-	metaEnd := bytes.Index(md[metaStart+3:], []byte("---"))
-	if metaEnd == -1 {
-		return
-	}
-	metaEnd += metaStart + 3
-	metaBytes := md[metaStart+3 : metaEnd]
+	// 使用正则表达式匹配 md 中 开头的--- ---之间的内容
+	re := regexp.MustCompile(`(?s)^\s*---(.*?)---`)
+	metaBytes := re.Find(md)
 	if err := yaml.Unmarshal(metaBytes, &meta); err != nil {
 		return meta, err
 	}
