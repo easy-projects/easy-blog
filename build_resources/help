@@ -1,0 +1,29 @@
+eb: easy blog
+
+dependencies:
+1. install pandoc and add it into environments
+```
+# on windows
+scoop install pandoc
+# on Ubuntu
+sudo apt update && sudo apt install pandoc
+```
+
+flags:
+-h: print help message
+-s: start server
+-n: create a new blog structure in current directory
+-v: print version
+
+Usage:
+eb -h
+eb -s
+eb -n
+eb -v
+
+quick start:
+```sh
+eb -n
+eb -s
+```
+then visit http://localhost:8080/blog/

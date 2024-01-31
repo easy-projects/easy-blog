@@ -1,0 +1,51 @@
+package main
+
+import (
+	"log"
+	"strings"
+	"sync"
+
+	"github.com/gocolly/colly"
+)
+
+func main() {
+	// 创建一个新的Collector
+	c := colly.NewCollector(
+		// 访问的最大深度，0表示无限制
+		colly.MaxDepth(0),
+	)
+
+	visited := map[string]bool{}
+	visitiedLock := sync.RWMutex{}
+	// 在找到每个链接时调用
+	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
+		link := e.Attr("href")
+		if strings.HasPrefix(link, "https") || strings.HasPrefix(link, "http") {
+			return
+		}
+		url := e.Request.URL.String()
+		if !strings.HasPrefix(link, "/") {
+			link = url + link
+		}
+		visitiedLock.RLock()
+		hasVisited := visited[link]
+		visitiedLock.RUnlock()
+		if hasVisited {
+			return
+		}
+		visitiedLock.Lock()
+		visited[link] = true
+		visitiedLock.Unlock()
+		e.Request.Visit(link)
+	})
+
+	// 在请求发送时调用
+	c.OnRequest(func(r *colly.Request) {
+		log.Println("Visiting", r.URL.String())
+	})
+
+	// 开始访问
+	c.Visit("http://localhost:7777/blog/")
+	c.Visit("http://localhost:7777/blog/readme.md")
+	c.Visit("http://localhost:7777/")
+}

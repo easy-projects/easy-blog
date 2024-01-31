@@ -1,0 +1,29 @@
+port: 7777
+blog_path: ./blog
+gen_path: ./gen
+hide_paths: 
+  - "*.png"
+  - "*.go"
+  - "*.svg"
+  - "*.html"
+  - "*.sum"
+  - "*.jpg"
+  - "*.puml"
+  - "*.cpp"
+  - "*.exe"
+  - "*.mod"
+  - "*.sh"
+  - "*.js"
+  - "*.json"
+  - "*.xml"
+  - "*.yml"
+  - "*.yaml"
+  - "*.ico"
+  - "*.pdf"
+  - "*.css"
+  - "*.txt"
+  - "*.py"
+private_paths: ["blog/private"]
+template_path: ./template.html
+app_data_path: ./app_data
+search_num: 13

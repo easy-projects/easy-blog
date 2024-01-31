@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>$title$</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <div class="search-bar">
+        <input class="search-input" v-model="keyword" type="text" placeholder="请输入关键词" @keydown.enter="performSearch">
+        <button class="search-button" @click="performSearch">Search</button>
+      </div>
+      <div class="content">
+        <div v-if="isLoading">Loading...</div>
+        <div v-if="isBase"> $toc$ <br><br> $body$</div>
+        <div v-else v-html="content"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const app = Vue.createApp({
+      data() {
+        return {
+          keyword: '',
+          isLoading: false,
+          isBase: true,
+          content: '',
+        };
+      },
+      methods: {
+        performSearch() {
+          this.isLoading = true;
+          this.isBase = false;
+
+          // 构造搜索请求的 URL
+          const keyword=this.keyword;
+          const url = "/api/search?keyword=" + encodeURIComponent(keyword);
+          // 发送网络请求获取链接数组的 JSON 响应
+          Promise.race([
+            fetch(url),
+            new Promise((resolve, reject) => {
+              setTimeout(() => reject(new Error('请求超时')), 5000)
+            })
+          ])
+            .then(response => response.json())
+            .then(data => {
+              this.content = this.generateLinkList(data);
+              this.isLoading = false;
+            })
+            .catch(error => {
+              console.error('搜索请求失败:', error);
+              this.isLoading = false;
+            });
+        }
+        ,
+        generateLinkList(linkArray) {
+          let html = '<ul>';
+          for (let i = 0; i < linkArray.length; i++) {
+            const url = linkArray[i]
+            console.log(url);
+            html += "<li><a href=\""+url+"\">"+url+"</a></li>";
+          }
+          html += '</ul>';
+          return html;
+        }
+      }
+    });
+
+    app.mount('#app');
+  </script>
+</body>
+</html>
