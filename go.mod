@@ -4,7 +4,6 @@ go 1.21.6
 
 require (
 	github.com/cncsmonster/fspider v0.0.4
-	github.com/cncsmonster/gofsutil v0.0.0
 	github.com/didip/tollbooth v4.0.2+incompatible
 	github.com/gin-contrib/cors v1.5.0
 	github.com/gin-gonic/gin v1.9.1
@@ -16,6 +15,8 @@ require (
 	golang.org/x/net v0.16.0
 	gopkg.in/yaml.v3 v3.0.1
 )
+
+require github.com/cncsmonster/gofsutil v0.0.1
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.1 // indirect

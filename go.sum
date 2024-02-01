@@ -21,8 +21,8 @@ github.com/chenzhuoyu/iasm v0.9.0 h1:9fhXjVzq5hUy2gkhhgHl95zG2cEAhw9OSGs8toWWAwo
 github.com/chenzhuoyu/iasm v0.9.0/go.mod h1:Xjy2NpN3h7aUqeqM+woSuuvxmIe6+DDsiNLIrkAmYog=
 github.com/cncsmonster/fspider v0.0.4 h1:w8yxju6C1ISpOBvYzAWZXuvqV5hRwUz+YArsesJBtsU=
 github.com/cncsmonster/fspider v0.0.4/go.mod h1:aWJOV4F1vths58zB6XMe5XhVPtlxZ4VTh0AtsoFcMLM=
-github.com/cncsmonster/gofsutil v0.0.0 h1:a0SCAaRzBd1sCT/xERqYQza3TgIPuih/ZRmVe5Tw7IM=
-github.com/cncsmonster/gofsutil v0.0.0/go.mod h1:sGp/tEPrzS1WuBmqV0D7DidYG0mPSkjhHB+wCwVOKCU=
+github.com/cncsmonster/gofsutil v0.0.1 h1:P3Jlxm9SpYrOh9qUEQjQTXi2BlHd8ymXPx3OFpLcKL4=
+github.com/cncsmonster/gofsutil v0.0.1/go.mod h1:sGp/tEPrzS1WuBmqV0D7DidYG0mPSkjhHB+wCwVOKCU=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=

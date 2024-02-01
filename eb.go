@@ -52,7 +52,6 @@ func Serve(config *Config) {
 	fileManagerLock := &sync.RWMutex{}
 	fileCache := NewCache(1000)
 	searcherCache := NewCache(1000)
-	// 使用go-gitignore来忽略隐藏文件
 	hideMatcher := ignore.CompileIgnoreLines(config.HIDE_PATHS...)
 	privateMatcher := ignore.CompileIgnoreLines(config.PRIVATE_PATHS...)
 	r.Use(func(c *gin.Context) {
@@ -81,15 +80,30 @@ func Serve(config *Config) {
 	blog.Use(GenMiddleWare(config))
 	blog.Use(RenderMdMiddleware(config))
 	blog.Use(LoadFileMiddleware(hideMatcher, privateMatcher, config))
-
 	blog.GET("/*any")
 
 	// api
-	api := r.Group("/api")
-	searcher := NewSearcherByTitleEditDistance(fileManager, hideMatcher, privateMatcher)
-	// searcher := NewSearcherByPlugin(fileManager, hideMatcher, privateMatcher, &config)
-	// searcher := NewSearcherByKeywork(fileManager, hideMatcher, privateMatcher)
-	api.GET("/search", SearchMiddleWare(searcher, searcherCache, fileManager, config))
+	api := r.Group(API_ROUTER)
+	searchers := map[string]Searcher{
+		"title":   NewSearcherByTitleEditDistance(fileManager, hideMatcher, privateMatcher),
+		"content": NewSearchByContentMatch(fileManager, hideMatcher, privateMatcher),
+		"keyword": NewSearcherByKeywork(fileManager, hideMatcher, privateMatcher),
+	}
+	// 根据配置文件 加载搜索器插件
+	for _, plugin := range config.SEARCH_PLUGINS {
+		searcher := NewSearcherByPlugin(fileManager, hideMatcher, privateMatcher, plugin[1], config)
+		searchers[plugin[0]] = searcher
+	}
+
+	api.GET("/search", SearchMiddleWare(searchers, searcherCache, fileManager, config))
+	api.GET("/searchers", func(c *gin.Context) {
+		searcherNames := make([]string, 0, len(searchers))
+		for k := range searchers {
+			searcherNames = append(searcherNames, k)
+		}
+		c.JSON(http.StatusOK, searcherNames)
+	})
+
 	port := fmt.Sprintf(":%d", config.PORT)
 	if err := r.Run(port); err != nil {
 		log.Fatal(err)
@@ -108,7 +122,6 @@ const (
 )
 
 type Config struct {
-	// 通过结构体标签忽略对 sync.RWMutex 的序列化
 	sync.RWMutex   `yaml:"-"`
 	PORT           int
 	BLOG_PATH      string
@@ -118,8 +131,8 @@ type Config struct {
 	TEMPLATE_PATH  string
 	APP_DATA_PATH  string
 	SEARCH_NUM     int
-	SEARCH_PLUGINS []string
-	// interface
+	SEARCH_PLUGINS [][2]string
+	RENDER_COMMAND string
 }
 
 func LoadConfig(file string) *Config {
@@ -142,19 +155,14 @@ func LoadConfig(file string) *Config {
 		log.Fatal(err)
 	}
 	log.Println("[config] config:\n", string(data))
-	if _, err := os.Stat(config.BLOG_PATH); err != nil {
-		if os.IsNotExist(err) {
-			log.Fatal("blog path not exist")
-		} else {
-			log.Fatal(err)
-		}
+	if !fsutil.IsExist(config.GEN_PATH) {
+		log.Println("[config] gen path not exist, create it")
 	}
-	if _, err := os.Stat(config.TEMPLATE_PATH); err != nil {
-		if os.IsNotExist(err) {
-			log.Fatal("template path not exist")
-		} else {
-			log.Fatal(err)
-		}
+	if !fsutil.IsExist(config.APP_DATA_PATH) {
+		log.Println("[config] app data path not exist, create it")
+	}
+	if !fsutil.IsExist(config.TEMPLATE_PATH) {
+		log.Println("[config] template path not exist, create it")
 	}
 	return &config
 }
@@ -448,7 +456,7 @@ func GenMiddleWare(config *Config) gin.HandlerFunc {
 }
 
 // === handle search ===
-func SearchMiddleWare(searcher Searcher, cache Cache, fMgr FileManager, config *Config) func(c *gin.Context) {
+func SearchMiddleWare(searchers map[string]Searcher, cache Cache, fMgr FileManager, config *Config) func(c *gin.Context) {
 	// cache := NewCache(1000)
 	return func(c *gin.Context) {
 		keyword := c.Query("keyword")
@@ -458,14 +466,6 @@ func SearchMiddleWare(searcher Searcher, cache Cache, fMgr FileManager, config *
 			})
 			return
 		}
-		// TODO,fix
-		// if !fMgr.Changed("") {
-		// 	if val, found := cache.Get(keyword); found {
-		// 		log.Println("[search] hit cache:", keyword)
-		// 		c.JSON(http.StatusOK, val)
-		// 		return
-		// 	}
-		// }
 		log.Println("[search] search:", keyword)
 		num := config.SEARCH_NUM
 		if n, find := c.GetQuery("num"); find {
@@ -477,6 +477,18 @@ func SearchMiddleWare(searcher Searcher, cache Cache, fMgr FileManager, config *
 				return
 			}
 			num = n
+		}
+		searchType := c.Query("searchType")
+		if searchType == "" {
+			searchType = "title"
+		}
+		log.Println("[search] search type:", searchType)
+		searcher, found := searchers[searchType]
+		if !found {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error": "search type not found",
+			})
+			return
 		}
 		results, err := searcher.Search(keyword, num)
 		// convert file paths to links
