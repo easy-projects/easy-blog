@@ -23,6 +23,7 @@ import (
 	"github.com/didip/tollbooth/limiter"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/google/shlex"
 	lru "github.com/hashicorp/golang-lru"
 	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/texttheater/golang-levenshtein/levenshtein"
@@ -361,13 +362,6 @@ func RenderMdMiddleware(config *Config) func(c *gin.Context) {
 		if !found {
 			return
 		}
-		log.Println("[render md] render md:", url)
-		html, err := Md2Html(file.([]byte), "", config)
-		if err != nil {
-			log.Println("[render md] render md error:", err)
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
 		meta, err := MdMeta(file.([]byte))
 		if err != nil {
 			log.Println("[render md] get meta error:", err)
@@ -378,9 +372,17 @@ func RenderMdMiddleware(config *Config) func(c *gin.Context) {
 			meta.Title = filepath.Base(url)
 			meta.Title = meta.Title[:len(meta.Title)-len(filepath.Ext(meta.Title))]
 		}
+		c.Set("meta", meta)
+		log.Println("[render md] render md:", url)
+		html, err := Md2Html(file.([]byte), meta.Title, config)
+		if err != nil {
+			log.Println("[render md] render md error:", err)
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		log.Println("[render md] render md success:", url)
 		c.Data(http.StatusOK, "text/html; charset=utf-8", html)
 		c.Set("html", html)
-		c.Set("meta", meta)
 	}
 }
 
@@ -521,7 +523,15 @@ func SimplifyPath(path string) string {
 // use pandoc to convert md to html
 func Md2Html(md []byte, title string, config *Config) (html []byte, err error) {
 	// pandoc -s --template=template.html --toc  --mathjax -f markdown -t html --metadata title="title"
-	cmd := exec.Command("pandoc", "-s", "--template="+config.TEMPLATE_PATH, "--toc", "--mathjax", "-f", "markdown", "-t", "html", "--metadata", "title="+title)
+	args := []string{"pandoc", "-s", "--template=" + config.TEMPLATE_PATH, "--toc", "--mathjax", "-f", "markdown", "-t", "html", "--metadata", "title=" + title}
+	if config.RENDER_COMMAND != "" {
+		args, err = shlex.Split(config.RENDER_COMMAND)
+		if err != nil {
+			return nil, err
+		}
+	}
+	log.Println("[md2html] render command:", args)
+	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Stdin = bytes.NewReader(md)
 	bs, err := cmd.Output()
 	return bs, err

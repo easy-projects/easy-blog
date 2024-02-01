@@ -16,7 +16,10 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require github.com/cncsmonster/gofsutil v0.0.1
+require (
+	github.com/cncsmonster/gofsutil v0.0.1
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
+)
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.1 // indirect
