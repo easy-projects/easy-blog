@@ -79,7 +79,9 @@ func Serve(config *Config) {
 	blog.Use(PrivateMiddleWare(privateMatcher, config))
 	blog.Use(FileCacheMiddleware(fileCache))
 	blog.Use(GenMiddleWare(config))
+	blog.Use(RenderMdMiddleware(config))
 	blog.Use(LoadFileMiddleware(hideMatcher, privateMatcher, config))
+
 	blog.GET("/*any")
 
 	// api
@@ -107,16 +109,16 @@ const (
 
 type Config struct {
 	// 通过结构体标签忽略对 sync.RWMutex 的序列化
-	sync.RWMutex  `yaml:"-"`
-	PORT          int
-	BLOG_PATH     string
-	GEN_PATH      string
-	HIDE_PATHS    []string
-	PRIVATE_PATHS []string
-	TEMPLATE_PATH string
-	APP_DATA_PATH string
-	SEARCH_NUM    int
-	SEARCH_PLUGIN string
+	sync.RWMutex   `yaml:"-"`
+	PORT           int
+	BLOG_PATH      string
+	GEN_PATH       string
+	HIDE_PATHS     []string
+	PRIVATE_PATHS  []string
+	TEMPLATE_PATH  string
+	APP_DATA_PATH  string
+	SEARCH_NUM     int
+	SEARCH_PLUGINS []string
 	// interface
 }
 
@@ -322,31 +324,84 @@ func FileCacheMiddleware(cache Cache) gin.HandlerFunc {
 		c.Next()
 		c.Abort()
 		if c.Writer.Status() == http.StatusOK {
-			md := c.MustGet("md").([]byte)
-			html := c.MustGet("html").([]byte)
-			meta := c.MustGet("meta").(Meta)
-			cache.Set("html:"+url, html)
-			cache.Set("md:"+url, md)
-			cache.Set("meta:"+url, meta)
+			contentI, found := c.Get("html")
+			if found {
+				cache.Set("html:"+url, contentI)
+			}
+			content, found = c.Get("file")
+			if found {
+				cache.Set("file:"+url, content)
+			}
+			meta, found := c.Get("meta")
+			if found {
+				cache.Set("meta:"+url, meta)
+			}
 		}
 	}
 }
 
 // === handle content ===
+
+// if file is dir or md,then render to html
+func RenderMdMiddleware(config *Config) func(c *gin.Context) {
+	return func(c *gin.Context) {
+		c.Next()
+		c.Abort()
+		url := c.Request.URL.Path
+		file, found := c.Get("file")
+		found = found && (strings.HasSuffix(url, ".md") || strings.HasSuffix(url, "/"))
+		if !found {
+			return
+		}
+		log.Println("[render md] render md:", url)
+		html, err := Md2Html(file.([]byte), "", config)
+		if err != nil {
+			log.Println("[render md] render md error:", err)
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		meta, err := MdMeta(file.([]byte))
+		if err != nil {
+			log.Println("[render md] get meta error:", err)
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		if meta.Title == "" {
+			meta.Title = filepath.Base(url)
+			meta.Title = meta.Title[:len(meta.Title)-len(filepath.Ext(meta.Title))]
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", html)
+		c.Set("html", html)
+		c.Set("meta", meta)
+	}
+}
+
 func LoadFileMiddleware(hide, private *ignore.GitIgnore, config *Config) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		url := c.Request.URL.Path
-		path := config.BLOG_PATH + "/" + url[len(BLOG_ROUTER)+1:]
-		md, html, meta, err := LoadBlog(path, hide, private, config)
+		filePath := config.BLOG_PATH + "/" + url[len(BLOG_ROUTER)+1:]
+		stat, err := os.Stat(filePath)
 		if err != nil {
-			log.Println("[load md] load blog error:", err)
+			log.Println("[load file] load file error:", err)
 			c.AbortWithStatus(http.StatusNotFound)
 			return
 		}
-		c.Set("meta", meta)
-		c.Set("md", md)
-		c.Set("html", html)
-		c.Data(http.StatusOK, "text/html; charset=utf-8", html)
+		var bs []byte
+		var action string
+		if stat.IsDir() {
+			bs, err = RenderDir(filePath, hide, private, config)
+			action = "load dir"
+		} else {
+			bs, err = os.ReadFile(filePath)
+			action = "load file"
+		}
+		if err != nil {
+			log.Printf("[load file] %s error: %e\n", action, err)
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		c.Set("file", bs)
+		c.Data(http.StatusOK, "text/html; charset=utf-8", bs)
 	}
 }
 
@@ -373,11 +428,18 @@ func GenMiddleWare(config *Config) gin.HandlerFunc {
 		c.Next()
 		c.Abort()
 		if c.Writer.Status() == http.StatusOK {
-			data := c.MustGet("html").([]byte)
 			gen_path := GenPath(URL, config)
 			log.Println("[gen] gen:", gen_path)
-			log.Println("[gen] transform links in:", URL)
-			data = TransformLinks(data, config)
+			var data []byte
+			dataI, found := c.Get("html")
+			if found {
+				data = dataI.([]byte)
+				log.Println("[gen] transform links in:", URL)
+				data = TransformLinks(data, config)
+			} else {
+				dataI := c.MustGet("file")
+				data = dataI.([]byte)
+			}
 			if err := fsutil.MustWrite(gen_path, data); err != nil {
 				panic(err)
 			}
@@ -454,55 +516,33 @@ func Md2Html(md []byte, title string, config *Config) (html []byte, err error) {
 }
 
 // load md
-func LoadBlog(path string, hide, private *ignore.GitIgnore, config *Config) (md, html []byte, meta Meta, err error) {
+func RenderDir(path string, hide, private *ignore.GitIgnore, config *Config) (md []byte, err error) {
 	path = SimplifyPath(path)
-	stat, err := os.Stat(path)
-	meta = Meta{}
+	log.Println("[load md] path is dir:", path)
+	items, err := os.ReadDir(path)
 	if err != nil {
-		return nil, nil, meta, err
+		return nil, err
 	}
-	if stat.IsDir() {
-		log.Println("[load md] path is dir:", path)
-		items, err := os.ReadDir(path)
-		if err != nil {
-			return nil, nil, meta, err
+	var dir bytes.Buffer
+	for _, item := range items {
+		name := item.Name()
+		full_path := path + "/" + name
+		full_path = SimplifyPath(full_path)
+		if PathMatch(full_path, hide, private) {
+			log.Println("[load md] path in dir ignored:", full_path)
+			continue
 		}
-		var dir bytes.Buffer
-		for _, item := range items {
-			name := item.Name()
-			full_path := path + "/" + name
-			full_path = SimplifyPath(full_path)
-			if PathMatch(full_path, hide, private) {
-				log.Println("[load md] path in dir ignored:", full_path)
-				continue
-			}
-			isDir := item.IsDir()
-			if isDir {
-				full_path += "/"
-				name += "/"
-			}
-			url := BLOG_ROUTER + full_path[len(config.BLOG_PATH):]
-			name = filepath.ToSlash(name)
-			dir.WriteString(fmt.Sprintf("<a href=\"%s\">%s</a><br>", url, name))
+		isDir := item.IsDir()
+		if isDir {
+			full_path += "/"
+			name += "/"
 		}
-		md = dir.Bytes()
-	} else {
-		log.Println("[load md] path is file:", path)
-		md, err = os.ReadFile(path)
-		if err != nil {
-			return nil, nil, meta, err
-		}
-		meta, err = MdMeta(md)
-		if err != nil {
-			return nil, nil, meta, err
-		}
+		url := BLOG_ROUTER + full_path[len(config.BLOG_PATH):]
+		name = filepath.ToSlash(name)
+		dir.WriteString(fmt.Sprintf("<a href=\"%s\">%s</a><br>", url, name))
 	}
-	if meta.Title == "" {
-		meta.Title = filepath.Base(path)
-		meta.Title = meta.Title[:len(meta.Title)-len(filepath.Ext(meta.Title))]
-	}
-	html, err = Md2Html(md, meta.Title, config)
-	return md, html, meta, err
+	md = dir.Bytes()
+	return md, err
 }
 
 // === search ===
@@ -573,9 +613,8 @@ func NewSearcherByTitleWord2Vec(fileManager FileManager, hideMatcher, privateMat
 }
 
 // searcher according to plugin
-func NewSearcherByPlugin(fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore, config *Config) Searcher {
+func NewSearcherByPlugin(fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore, plugin string, config *Config) Searcher {
 	return SearcherFunc(func(keyword string, num int) ([]string, error) {
-		plugin := config.SEARCH_PLUGIN
 		cmd := exec.Command(plugin)
 		cmd.Stdin = bytes.NewReader([]byte(keyword + "\n"))
 		bs, err := cmd.Output()
