@@ -52,9 +52,9 @@ func Serve(config *Config) {
 		c.Abort()
 	})
 	// set visit rate limit for each ip and each path
-	lmt1 := tollbooth.NewLimiter(5, &limiter.ExpirableOptions{DefaultExpirationTTL: time.Second})  // 每秒最多5次
-	lmt2 := tollbooth.NewLimiter(30, &limiter.ExpirableOptions{DefaultExpirationTTL: time.Minute}) // 每分钟最多30次
-	lmt3 := tollbooth.NewLimiter(1000, &limiter.ExpirableOptions{DefaultExpirationTTL: time.Hour}) // 每小时最多1000次
+	lmt1 := tollbooth.NewLimiter(float64(config.RATE_LIMITE_SECOND), &limiter.ExpirableOptions{DefaultExpirationTTL: time.Second}) // 每秒最多5次
+	lmt2 := tollbooth.NewLimiter(float64(config.RATE_LIMITE_MINUTE), &limiter.ExpirableOptions{DefaultExpirationTTL: time.Minute}) // 每分钟最多30次
+	lmt3 := tollbooth.NewLimiter(float64(config.RATE_LIMITE_HOUR), &limiter.ExpirableOptions{DefaultExpirationTTL: time.Hour})     // 每小时最多1000次
 	r.Use(LimitMiddleware(lmt1), LimitMiddleware(lmt2), LimitMiddleware(lmt3))
 	// router
 

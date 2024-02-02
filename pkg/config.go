@@ -28,6 +28,11 @@ type Config struct {
 	SEARCH_NUM     int
 	SEARCH_PLUGINS [][2]string
 	RENDER_COMMAND string
+
+	// for visit limit
+	RATE_LIMITE_SECOND int
+	RATE_LIMITE_MINUTE int
+	RATE_LIMITE_HOUR   int
 }
 
 func LoadConfig(file string) *Config {
@@ -45,11 +50,16 @@ func LoadConfig(file string) *Config {
 	if config.SEARCH_NUM == 0 {
 		config.SEARCH_NUM = 12
 	}
-	data, err = yaml.Marshal(&config)
-	if err != nil {
-		log.Fatal(err)
+	if config.RATE_LIMITE_SECOND == 0 {
+		config.RATE_LIMITE_SECOND = 5
 	}
-	log.Println("[config] config:\n", string(data))
+	if config.RATE_LIMITE_MINUTE == 0 {
+		config.RATE_LIMITE_MINUTE = 30
+	}
+	if config.RATE_LIMITE_HOUR == 0 {
+		config.RATE_LIMITE_HOUR = 1000
+	}
+
 	if !fsutil.IsExist(config.GEN_PATH) {
 		log.Println("[config] gen path not exist, create it")
 	}
