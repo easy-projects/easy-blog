@@ -51,7 +51,7 @@ func main() {
 	flag.StringVar(&keywordPath, "keyword", "./build_resources/keyword.md", "keyword file path")
 	flag.StringVar(&faviconPath, "favicon", "./build_resources/favicon.ico", "favicon file path")
 	flag.Parse()
-	eb := bytes.NewBufferString("package eb\n\n")
+	eb := bytes.NewBufferString("package easyblog\n\n")
 	ProcessIncludeFile(configPath, "DEFAULT_CONFIG", eb)
 	ProcessIncludeFile(templatePath, "DEFAULT_TEMPLATE", eb)
 	ProcessIncludeFile(blogPath, "DEFAULT_BLOG", eb)
