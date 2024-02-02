@@ -5,6 +5,7 @@ import (
 	"os"
 
 	eb "github.com/easy-projects/easyblog"
+	"github.com/easy-projects/easyblog/pkg"
 )
 
 func main() {
@@ -20,7 +21,7 @@ func main() {
 	case "-n":
 		eb.New()
 	case "-s":
-		eb.Serve(eb.LoadConfig("eb.yaml"))
+		eb.Serve(pkg.LoadConfig("eb.yaml"))
 	case "-v":
 		eb.Version()
 	default:
