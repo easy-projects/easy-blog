@@ -21,6 +21,7 @@ type Config struct {
 	PORT           int
 	BLOG_PATH      string
 	GEN_PATH       string
+	NOT_GEN        bool
 	HIDE_PATHS     []string
 	PRIVATE_PATHS  []string
 	TEMPLATE_PATH  string
@@ -59,9 +60,8 @@ func LoadConfig(file string) *Config {
 	if config.RATE_LIMITE_HOUR == 0 {
 		config.RATE_LIMITE_HOUR = 1000
 	}
-
-	if !fsutil.IsExist(config.GEN_PATH) {
-		log.Println("[config] gen path not exist, create it")
+	if !fsutil.IsExist(config.BLOG_PATH) {
+		log.Fatal("[config] blog path not exist")
 	}
 	if !fsutil.IsExist(config.APP_DATA_PATH) {
 		log.Println("[config] app data path not exist, create it")

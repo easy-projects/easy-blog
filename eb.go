@@ -63,7 +63,9 @@ func Serve(config *Config) {
 	blog.Use(FileUpdateMiddleware(fileCache, fileManager, fileManagerLock, config))
 	blog.Use(PrivateMiddleWare(privateMatcher, config))
 	blog.Use(FileCacheMiddleware(fileCache))
-	blog.Use(GenMiddleWare(config))
+	if !config.NOT_GEN {
+		blog.Use(GenMiddleWare(config))
+	}
 	blog.Use(RenderMdMiddleware(config))
 	blog.Use(LoadFileMiddleware(hideMatcher, privateMatcher, config))
 	blog.GET("/*any")
