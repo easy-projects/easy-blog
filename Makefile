@@ -14,8 +14,8 @@ preprocess:
 		--help ./build_resources/help \
 		--version ./build_resources/version \
 		--output ./include_files.go
-	@-rm ./ebbuilder
-	@-del ./ebbuilder.exe
+	@-rm -f ebbuilder
+	@-del  .\ebbuilder.exe
 	@echo "Done."
 
 
