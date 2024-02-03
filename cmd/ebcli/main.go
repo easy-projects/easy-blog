@@ -1,10 +1,13 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"log"
 	"strings"
 	"sync"
 
+	"github.com/easy-projects/easyblog/pkg"
 	"github.com/gocolly/colly"
 )
 
@@ -44,8 +47,14 @@ func main() {
 		log.Println("Visiting", r.URL.String())
 	})
 
+	// 可以接受一个命令行参数制定使用的config的位置,接受--config,接受缩写-c
+	var configPath string
+	// 在命令行中使用--config或者-c指定配置文件的位置
+	flag.StringVar(&configPath, "config", "eb.yaml", "config file path")
+	flag.StringVar(&configPath, "c", "eb.yaml", "config file path")
+	flag.Parse()
+	var config = pkg.LoadConfig(configPath)
 	// 开始访问
-	c.Visit("http://localhost:7777/blog/")
-	c.Visit("http://localhost:7777/blog/readme.md")
-	c.Visit("http://localhost:7777/")
+	indexURL := fmt.Sprintf("http://localhost:%d/", config.PORT)
+	c.Visit(indexURL)
 }
