@@ -41,8 +41,11 @@ func FileUpdateMiddleware(cache Cache, fileManager FileManager, fileManagerLock 
 		path = filepath.ToSlash(filepath.Clean(path))
 		fileManagerLock.Lock()
 		if fileManager.Changed(path) {
-			cache.Remove(url)
+			log.Println("[file update] file changed:", path)
+			cache.Remove("html:" + url)
 			fileManager.SetChanged(path, false)
+		} else {
+			log.Println("[file update] file not changed:", path)
 		}
 		fileManagerLock.Unlock()
 	}
@@ -232,6 +235,7 @@ func SearchMiddleWare(searchers map[string]Searcher, cache Cache, fMgr FileManag
 		for i, path := range results {
 			// 如果路径是dir的 话,则生成的url 结尾要增加/
 			results[i] = BLOG_ROUTER + path[len(config.BLOG_PATH):]
+			results[i] = filepath.ToSlash(results[i])
 		}
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{

@@ -42,10 +42,7 @@ func NewFileManager(rootPath string) FileManager {
 	go func() {
 		for path := range fileManager.spider.FilesChanged() {
 			path = filepath.ToSlash(filepath.Clean(path))
-			dir := filepath.ToSlash(filepath.Clean(path))
-			log.Println(path, "changed")
 			fileManager.SetChanged(path, true)
-			fileManager.SetChanged(dir, true)
 		}
 	}()
 	return fileManager
@@ -86,6 +83,14 @@ func (fMgr *fileManagerImpl) SetChanged(path string, changed bool) {
 	if changed {
 		log.Println("[file manager] publish changed on path:", path)
 		fMgr.changedNum.Add(1)
+		// 修改上一级目录的状态
+		dir := filepath.Dir(path)
+		dir = filepath.ToSlash(dir)
+		if dir != path {
+			log.Println("[file manager] publish changed on dir:", dir)
+			fMgr.pathChanged[dir] = true
+			fMgr.changedNum.Add(1)
+		}
 	} else {
 		log.Println("[file manager] process changed on path:", path)
 		fMgr.changedNum.Add(-1)
