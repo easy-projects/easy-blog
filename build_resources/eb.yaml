@@ -25,5 +25,6 @@ hide_paths:
   - "*.py"
 private_paths: ["blog/private"]
 template_path: ./template.html
-app_data_path: ./app_data
+render_command: "pandoc -f markdown -t html --template template.html --metadata pagetitle=Blog"
+app_data_path: ~/.eb
 search_num: 13
