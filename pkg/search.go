@@ -2,13 +2,13 @@ package pkg
 
 import (
 	"bytes"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/easy-projects/easyblog/pkg/log"
 	"github.com/texttheater/golang-levenshtein/levenshtein"
 )
 

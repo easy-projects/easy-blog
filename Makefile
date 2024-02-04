@@ -1,4 +1,4 @@
-.PHONY: build preprocess clean install
+.PHONY: build preprocess clean install install-release
 
 
 
@@ -41,4 +41,11 @@ install:preprocess
 	go install ./cmd/eb
 	go install ./cmd/ebcli
 	go install ./cmd/ebbuilder
+	@echo "Done."
+
+install-release:preprocess
+	@echo "Installing..."
+	go install -ldflags "-s -w" -tags=release ./cmd/eb
+	go install -ldflags "-s -w" -tags=release ./cmd/ebcli
+	go install -ldflags "-s -w" -tags=release ./cmd/ebbuilder
 	@echo "Done."

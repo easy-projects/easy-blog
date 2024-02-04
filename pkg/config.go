@@ -1,11 +1,11 @@
 package pkg
 
 import (
-	"log"
 	"os"
 	"sync"
 
 	fsutil "github.com/cncsmonster/gofsutil"
+	"github.com/easy-projects/easyblog/pkg/log"
 	"gopkg.in/yaml.v2"
 )
 

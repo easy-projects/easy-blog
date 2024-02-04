@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 	fsutil "github.com/cncsmonster/gofsutil"
 	"github.com/didip/tollbooth"
 	"github.com/didip/tollbooth/limiter"
+	"github.com/easy-projects/easyblog/pkg/log"
 	"github.com/gin-gonic/gin"
 )
 

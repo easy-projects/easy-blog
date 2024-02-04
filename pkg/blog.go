@@ -3,12 +3,12 @@ package pkg
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 
+	"github.com/easy-projects/easyblog/pkg/log"
 	"github.com/google/shlex"
 	"gopkg.in/yaml.v3"
 )

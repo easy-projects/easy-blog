@@ -1,13 +1,13 @@
 package pkg
 
 import (
-	"log"
 	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
 
 	"github.com/cncsmonster/fspider"
+	"github.com/easy-projects/easyblog/pkg/log"
 )
 
 // === index ===

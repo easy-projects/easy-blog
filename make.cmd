@@ -65,3 +65,16 @@ goto :eof
     go install ./cmd/ebbuilder
     echo Done.
     goto :eof
+
+@echo off
+:install-release
+    echo Installing...
+    @REM 预处理
+    call :preprocess
+    @REM 安装项目
+    go install -ldflags "-s -w" -tags=release ./cmd/eb
+    go install -ldflags "-s -w" -tags=release ./cmd/ebcli
+    go install -ldflags "-s -w" -tags=release ./cmd/ebbuilder
+    echo Done.
+    goto :eof
+```
