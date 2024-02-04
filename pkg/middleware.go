@@ -130,8 +130,8 @@ func RenderMdMiddleware(config *Config) func(c *gin.Context) {
 		blog := Blog{
 			Url:  url,
 			Meta: meta,
-			Md:   file.([]byte),
-			Html: html,
+			Md:   string(file.([]byte)),
+			Html: string(html),
 		}
 		c.Set("blog", blog)
 	}

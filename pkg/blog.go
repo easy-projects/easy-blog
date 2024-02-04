@@ -18,8 +18,8 @@ type Blog struct {
 	// Url 作为唯一标识符
 	Url string
 	Meta
-	Md   []byte
-	Html []byte
+	Md   string
+	Html string
 }
 
 // === meta data for md ===
