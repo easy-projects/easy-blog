@@ -40,6 +40,7 @@ func main() {
 	var versionPath string
 	var keywordPath string
 	var faviconPath string
+	var vueJsPath string
 	flag.StringVar(&configPath, "config", "./build_resources/eb.yaml", "config file path")
 	flag.StringVar(&templatePath, "template", "./build_resources/template.yaml", "template file path")
 	flag.StringVar(&blogPath, "intro", "./build_resources/intro.md", "intro file path")
@@ -50,6 +51,7 @@ func main() {
 	flag.StringVar(&versionPath, "version", "./build_resources/version", "version file path")
 	flag.StringVar(&keywordPath, "keyword", "./build_resources/keyword.md", "keyword file path")
 	flag.StringVar(&faviconPath, "favicon", "./build_resources/favicon.ico", "favicon file path")
+	flag.StringVar(&vueJsPath, "vuejs", "./build_resources/vue.js", "vue.js file path")
 	flag.Parse()
 	eb := bytes.NewBufferString("package easyblog\n\n")
 	ProcessIncludeFile(configPath, "DEFAULT_CONFIG", eb)
@@ -61,5 +63,6 @@ func main() {
 	ProcessIncludeFile(versionPath, "DEFAULT_VERSION", eb)
 	ProcessIncludeFile(keywordPath, "DEFAULT_KEYWORD", eb)
 	ProcessIncludeFile(faviconPath, "DEFAULT_FAVICON", eb)
+	ProcessIncludeFile(vueJsPath, "DEFAULT_VUE_JS", eb)
 	fsutil.MustWrite(outputPath, eb.Bytes())
 }

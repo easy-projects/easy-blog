@@ -28,6 +28,7 @@ func New() {
 	fsutil.MustWrite("blog/hide.md", DEFAULT_HIDE)
 	fsutil.MustWrite("./template.html", DEFAULT_TEMPLATE)
 	fsutil.MustWrite("blog/favicon.ico", DEFAULT_FAVICON)
+	fsutil.MustWrite("blog/vue.js", DEFAULT_VUE_JS)
 }
 
 func Serve(config *Config) {
@@ -55,7 +56,6 @@ func Serve(config *Config) {
 	lmt2 := tollbooth.NewLimiter(float64(config.RATE_LIMITE_MINUTE), &limiter.ExpirableOptions{DefaultExpirationTTL: time.Minute}) // 每分钟最多30次
 	lmt3 := tollbooth.NewLimiter(float64(config.RATE_LIMITE_HOUR), &limiter.ExpirableOptions{DefaultExpirationTTL: time.Hour})     // 每小时最多1000次
 	r.Use(LimitMiddleware(lmt1), LimitMiddleware(lmt2), LimitMiddleware(lmt3))
-	// router
 
 	// blog
 	blog := r.Group(BLOG_ROUTER)
