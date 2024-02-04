@@ -27,7 +27,7 @@ type Config struct {
 	TEMPLATE_PATH  string
 	APP_DATA_PATH  string
 	SEARCH_NUM     int
-	SEARCH_PLUGINS [][2]string
+	SEARCH_PLUGINS []SearcherPlugin
 	RENDER_COMMAND string
 
 	// for visit limit

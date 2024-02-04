@@ -15,19 +15,40 @@ import (
 
 type Searcher interface {
 	Search(keyword string, num int) ([]string, error)
+	Name() string
+	Brief() string
 }
 
-// SearcherFunc
-type SearcherFunc func(keyword string, num int) ([]string, error)
+type SearcherPlugin struct {
+	Name    string
+	Brief   string
+	Type    string
+	Command string
+	Url     string
+}
+
+// searcherImpl
+type searcherImpl struct {
+	f     func(keyword string, num int) ([]string, error)
+	name  string
+	brief string
+}
 
 // SearcherFunc implements Searcher interface
-func (f SearcherFunc) Search(keyword string, num int) ([]string, error) {
-	return f(keyword, num)
+func (s searcherImpl) Search(keyword string, num int) ([]string, error) {
+	return s.f(keyword, num)
+}
+
+func (s searcherImpl) Name() string {
+	return s.name
+}
+func (s searcherImpl) Brief() string {
+	return s.brief
 }
 
 // searcher according to title edit distance
-func NewSearcherByTitleEditDistance(fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore) Searcher {
-	return SearcherFunc(func(keyword string, num int) ([]string, error) {
+func NewSearcherByTitleEditDistance(name, brief string, fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore) Searcher {
+	f := func(keyword string, num int) ([]string, error) {
 		paths := fileManager.Paths()
 		results := make([]string, 0, num)
 		type _Item struct {
@@ -61,21 +82,31 @@ func NewSearcherByTitleEditDistance(fileManager FileManager, hideMatcher, privat
 			}
 		}
 		return results, nil
-	})
+	}
+	return searcherImpl{
+		f:     f,
+		name:  name,
+		brief: brief,
+	}
 }
 
 // searcher according to title word2vec
-func NewSearcherByTitleWord2Vec(fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore) Searcher {
-	return SearcherFunc(func(keyword string, num int) ([]string, error) {
+func NewSearcherByTitleWord2Vec(name, brief string, fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore) Searcher {
+	f := func(keyword string, num int) ([]string, error) {
 		// TODO
 		return nil, nil
-	})
+	}
+	return searcherImpl{
+		f:     f,
+		name:  name,
+		brief: brief,
+	}
 }
 
 // searcher according to plugin
-func NewSearcherByPlugin(fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore, plugin string, config *Config) Searcher {
-	return SearcherFunc(func(keyword string, num int) ([]string, error) {
-		cmd := exec.Command(plugin)
+func NewSearcherByPlugin(plugin SearcherPlugin, fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore, config *Config) Searcher {
+	f := func(keyword string, num int) ([]string, error) {
+		cmd := exec.Command(plugin.Command)
 		cmd.Stdin = bytes.NewReader([]byte(keyword + "\n"))
 		bs, err := cmd.Output()
 		if err != nil {
@@ -91,12 +122,17 @@ func NewSearcherByPlugin(fileManager FileManager, hideMatcher, privateMatcher *i
 			results = append(results, path)
 		}
 		return results, nil
-	})
+	}
+	return searcherImpl{
+		f:     f,
+		name:  plugin.Name,
+		brief: plugin.Brief,
+	}
 }
 
 // searcher according to search-keyword and keywords in meta
-func NewSearcherByKeywork(fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore) Searcher {
-	return SearcherFunc(func(keyword string, num int) ([]string, error) {
+func NewSearcherByKeywork(name, brief string, fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore) Searcher {
+	f := func(keyword string, num int) ([]string, error) {
 		log.Println("[search by keyword] keyword:", keyword)
 		type _Item struct {
 			path        string
@@ -147,22 +183,37 @@ func NewSearcherByKeywork(fileManager FileManager, hideMatcher, privateMatcher *
 			}
 		}
 		return results, nil
-	})
+	}
+	return searcherImpl{
+		f:     f,
+		name:  name,
+		brief: brief,
+	}
 }
 
 // according to the times of keyword in {content, title, meta}
-func NewSearchByContentMatch(fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore) Searcher {
-	return SearcherFunc(func(keyword string, num int) ([]string, error) {
+func NewSearchByContentMatch(name, brief string, fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore) Searcher {
+	f := func(keyword string, num int) ([]string, error) {
 		// TODO
 
 		return nil, nil
-	})
+	}
+	return searcherImpl{
+		f:     f,
+		name:  name,
+		brief: brief,
+	}
 }
 
 // searcher according to big language model
-func NewSearcherByLLM(fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore) Searcher {
-	return SearcherFunc(func(keyword string, num int) ([]string, error) {
+func NewSearcherByLLM(name, brief string, fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore) Searcher {
+	f := func(keyword string, num int) ([]string, error) {
 		// TODO
 		return nil, nil
-	})
+	}
+	return searcherImpl{
+		f:     f,
+		name:  name,
+		brief: brief,
+	}
 }

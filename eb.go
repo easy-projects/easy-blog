@@ -73,23 +73,30 @@ func Serve(config *Config) {
 	// api
 	api := r.Group(API_ROUTER)
 	searchers := map[string]Searcher{
-		"title":   NewSearcherByTitleEditDistance(fileManager, hideMatcher, privateMatcher),
-		"content": NewSearchByContentMatch(fileManager, hideMatcher, privateMatcher),
-		"keyword": NewSearcherByKeywork(fileManager, hideMatcher, privateMatcher),
+		"title":   NewSearcherByTitleEditDistance("title", "根据标题编辑距离搜索", fileManager, hideMatcher, privateMatcher),
+		"content": NewSearchByContentMatch("content", "根据文本内容匹配搜索", fileManager, hideMatcher, privateMatcher),
+		"keyword": NewSearcherByKeywork("keyword", "根据关键词搜索", fileManager, hideMatcher, privateMatcher),
 	}
 	// 根据配置文件 加载搜索器插件
 	for _, plugin := range config.SEARCH_PLUGINS {
-		searcher := NewSearcherByPlugin(fileManager, hideMatcher, privateMatcher, plugin[1], config)
-		searchers[plugin[0]] = searcher
+		searcher := NewSearcherByPlugin(plugin, fileManager, hideMatcher, privateMatcher, config)
+		searchers[plugin.Name] = searcher
 	}
 
 	api.GET("/search", SearchMiddleWare(searchers, searcherCache, fileManager, config))
 	api.GET("/searchers", func(c *gin.Context) {
-		searcherNames := make([]string, 0, len(searchers))
-		for k := range searchers {
-			searcherNames = append(searcherNames, k)
+		type JsonSearcher struct {
+			Type  string `json:"type"`
+			Brief string `json:"brief"`
 		}
-		c.JSON(http.StatusOK, searcherNames)
+		jsonSearchers := make([]JsonSearcher, 0, len(searchers))
+		for _, searcher := range searchers {
+			jsonSearchers = append(jsonSearchers, JsonSearcher{
+				Type:  searcher.Name(),
+				Brief: searcher.Brief(),
+			})
+		}
+		c.JSON(http.StatusOK, jsonSearchers)
 	})
 
 	port := fmt.Sprintf(":%d", config.PORT)

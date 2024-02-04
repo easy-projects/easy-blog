@@ -83,6 +83,11 @@ func FileCacheMiddleware(cache Cache) gin.HandlerFunc {
 			if found {
 				cache.Set("meta:"+url, meta)
 			}
+			// store blog in blog index
+			blog, found := c.Get("blog")
+			if found {
+				cache.Set("blog:"+url, blog)
+			}
 		}
 	}
 }
@@ -121,6 +126,14 @@ func RenderMdMiddleware(config *Config) func(c *gin.Context) {
 		log.Println("[render md] render md success:", url)
 		c.Data(http.StatusOK, "text/html; charset=utf-8", html)
 		c.Set("html", html)
+		// store it to blog
+		blog := Blog{
+			Url:  url,
+			Meta: meta,
+			Md:   file.([]byte),
+			Html: html,
+		}
+		c.Set("blog", blog)
 	}
 }
 
