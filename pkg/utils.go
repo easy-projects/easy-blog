@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	ignore "github.com/sabhiram/go-gitignore"
 	"golang.org/x/net/html"
 )
 
@@ -17,10 +16,10 @@ func SimplifyPath(path string) string {
 }
 
 // === path match ===
-func PathMatch(path string, matcher ...*ignore.GitIgnore) bool {
+func PathMatch(path string, matcher ...GitIgnorer) bool {
 	path = SimplifyPath(path)
 	for _, m := range matcher {
-		if m.MatchesPath(path) {
+		if m.Match(path) {
 			return true
 		}
 	}

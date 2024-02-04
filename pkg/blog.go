@@ -10,7 +10,6 @@ import (
 	"regexp"
 
 	"github.com/google/shlex"
-	ignore "github.com/sabhiram/go-gitignore"
 	"gopkg.in/yaml.v3"
 )
 
@@ -59,7 +58,7 @@ func Md2Html(md []byte, title string, config *Config) (html []byte, err error) {
 }
 
 // load md
-func RenderDir(path string, hide, private *ignore.GitIgnore, config *Config) (md []byte, err error) {
+func RenderDir(path string, hide, private GitIgnorer, config *Config) (md []byte, err error) {
 	path = SimplifyPath(path)
 	log.Println("[load md] path is dir:", path)
 	items, err := os.ReadDir(path)

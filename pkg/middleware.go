@@ -14,7 +14,6 @@ import (
 	"github.com/didip/tollbooth"
 	"github.com/didip/tollbooth/limiter"
 	"github.com/gin-gonic/gin"
-	ignore "github.com/sabhiram/go-gitignore"
 )
 
 // ===== middlewares =====
@@ -137,7 +136,7 @@ func RenderMdMiddleware(config *Config) func(c *gin.Context) {
 	}
 }
 
-func LoadFileMiddleware(hide, private *ignore.GitIgnore, config *Config) func(c *gin.Context) {
+func LoadFileMiddleware(hide, private GitIgnorer, config *Config) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		url := c.Request.URL.Path
 		filePath := config.BLOG_PATH + "/" + url[len(BLOG_ROUTER)+1:]
@@ -167,7 +166,7 @@ func LoadFileMiddleware(hide, private *ignore.GitIgnore, config *Config) func(c 
 }
 
 // === handle private ===
-func PrivateMiddleWare(private *ignore.GitIgnore, config *Config) gin.HandlerFunc {
+func PrivateMiddleWare(private GitIgnorer, config *Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		url := c.Request.URL.Path
 		path := config.BLOG_PATH + "/" + url[len(BLOG_ROUTER)+1:]

@@ -13,7 +13,6 @@ import (
 	. "github.com/easy-projects/easyblog/pkg"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	ignore "github.com/sabhiram/go-gitignore"
 )
 
 func Help() {
@@ -38,8 +37,8 @@ func Serve(config *Config) {
 	fileManagerLock := &sync.RWMutex{}
 	fileCache := NewCache(1000)
 	searcherCache := NewCache(1000)
-	hideMatcher := ignore.CompileIgnoreLines(config.HIDE_PATHS...)
-	privateMatcher := ignore.CompileIgnoreLines(config.PRIVATE_PATHS...)
+	hideMatcher := NewBlogIgnorer().AddPatterns(config.HIDE_PATHS...)
+	privateMatcher := NewBlogIgnorer().AddPatterns(config.PRIVATE_PATHS...)
 	r.Use(func(c *gin.Context) {
 		if c.Request.URL.Path == "/" {
 			c.Redirect(http.StatusMovedPermanently, "/blog/")

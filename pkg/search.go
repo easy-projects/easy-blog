@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strings"
 
-	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/texttheater/golang-levenshtein/levenshtein"
 )
 
@@ -47,7 +46,7 @@ func (s searcherImpl) Brief() string {
 }
 
 // searcher according to title edit distance
-func NewSearcherByTitleEditDistance(name, brief string, fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore) Searcher {
+func NewSearcherByTitleEditDistance(name, brief string, fileManager FileManager, hideMatcher, privateMatcher GitIgnorer) Searcher {
 	f := func(keyword string, num int) ([]string, error) {
 		paths := fileManager.Paths()
 		results := make([]string, 0, num)
@@ -91,7 +90,7 @@ func NewSearcherByTitleEditDistance(name, brief string, fileManager FileManager,
 }
 
 // searcher according to title word2vec
-func NewSearcherByTitleWord2Vec(name, brief string, fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore) Searcher {
+func NewSearcherByTitleWord2Vec(name, brief string, fileManager FileManager, hideMatcher, privateMatcher GitIgnorer) Searcher {
 	f := func(keyword string, num int) ([]string, error) {
 		// TODO
 		return nil, nil
@@ -104,7 +103,7 @@ func NewSearcherByTitleWord2Vec(name, brief string, fileManager FileManager, hid
 }
 
 // searcher according to plugin
-func NewSearcherByPlugin(plugin SearcherPlugin, fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore, config *Config) Searcher {
+func NewSearcherByPlugin(plugin SearcherPlugin, fileManager FileManager, hideMatcher, privateMatcher GitIgnorer, config *Config) Searcher {
 	f := func(keyword string, num int) ([]string, error) {
 		cmd := exec.Command(plugin.Command)
 		cmd.Stdin = bytes.NewReader([]byte(keyword + "\n"))
@@ -131,7 +130,7 @@ func NewSearcherByPlugin(plugin SearcherPlugin, fileManager FileManager, hideMat
 }
 
 // searcher according to search-keyword and keywords in meta
-func NewSearcherByKeywork(name, brief string, fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore) Searcher {
+func NewSearcherByKeywork(name, brief string, fileManager FileManager, hideMatcher, privateMatcher GitIgnorer) Searcher {
 	f := func(keyword string, num int) ([]string, error) {
 		log.Println("[search by keyword] keyword:", keyword)
 		type _Item struct {
@@ -192,7 +191,7 @@ func NewSearcherByKeywork(name, brief string, fileManager FileManager, hideMatch
 }
 
 // according to the times of keyword in {content, title, meta}
-func NewSearchByContentMatch(name, brief string, fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore) Searcher {
+func NewSearchByContentMatch(name, brief string, fileManager FileManager, hideMatcher, privateMatcher GitIgnorer) Searcher {
 	f := func(keyword string, num int) ([]string, error) {
 		// TODO
 
@@ -206,7 +205,7 @@ func NewSearchByContentMatch(name, brief string, fileManager FileManager, hideMa
 }
 
 // searcher according to big language model
-func NewSearcherByLLM(name, brief string, fileManager FileManager, hideMatcher, privateMatcher *ignore.GitIgnore) Searcher {
+func NewSearcherByLLM(name, brief string, fileManager FileManager, hideMatcher, privateMatcher GitIgnorer) Searcher {
 	f := func(keyword string, num int) ([]string, error) {
 		// TODO
 		return nil, nil
