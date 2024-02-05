@@ -3,6 +3,7 @@ package pkg
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -130,8 +131,7 @@ func NewSearcherByPlugin(plugin SearcherPlugin, fileManager FileManager, hideMat
 	} else if plugin.Type == "url" {
 		f = func(keyword string, num int) ([]string, error) {
 			// put a get request to url
-			// /?keyword=keyword&num=num
-			resp, err := http.Get(plugin.Url + "?keyword=" + keyword + "&num=" + string(num))
+			resp, err := http.Get(fmt.Sprintf("%s?keyword=%s&num=%d", plugin.Url, keyword, num))
 			if err != nil {
 				return nil, err
 			}
