@@ -56,18 +56,16 @@ func Serve(config *Config) {
 	lmt1 := tollbooth.NewLimiter(float64(config.RATE_LIMITE_SECOND), &limiter.ExpirableOptions{DefaultExpirationTTL: time.Second}) // 每秒最多5次
 	lmt2 := tollbooth.NewLimiter(float64(config.RATE_LIMITE_MINUTE), &limiter.ExpirableOptions{DefaultExpirationTTL: time.Minute}) // 每分钟最多30次
 	lmt3 := tollbooth.NewLimiter(float64(config.RATE_LIMITE_HOUR), &limiter.ExpirableOptions{DefaultExpirationTTL: time.Hour})     // 每小时最多1000次
-	r.Use(LimitMiddleware(lmt1), LimitMiddleware(lmt2), LimitMiddleware(lmt3))
-
+	r.Use(LimitMiddleware(lmt1, lmt2, lmt3))
 	// blog
 	blog := r.Group(BLOG_ROUTER)
-	blog.Use(FileUpdateMiddleware(fileCache, fileManager, fileManagerLock, config))
 	blog.Use(PrivateMiddleWare(privateMatcher, config))
+	blog.Use(FileUpdateMiddleware(fileCache, fileManager, fileManagerLock, config))
 	blog.Use(FileCacheMiddleware(fileCache))
 	if !config.NOT_GEN {
 		blog.Use(GenMiddleWare(config))
 	}
-	blog.Use(RenderMdMiddleware(config))
-	blog.Use(LoadFileMiddleware(hideMatcher, privateMatcher, config))
+	blog.Use(LoadFileMiddleware(hideMatcher, privateMatcher, fileCache, config))
 	blog.GET("/*any")
 
 	// api
@@ -83,7 +81,7 @@ func Serve(config *Config) {
 		searchers[plugin.Name] = searcher
 	}
 
-	api.GET("/search", SearchMiddleWare(searchers, searcherCache, fileManager, config))
+	api.GET("/search", SearchMiddleWare(searchers, searcherCache, config))
 	api.GET("/searchers", func(c *gin.Context) {
 		type JsonSearcher struct {
 			Type  string `json:"type"`

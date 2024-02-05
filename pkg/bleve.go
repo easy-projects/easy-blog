@@ -5,9 +5,9 @@ import "github.com/blevesearch/bleve"
 // 使用bleve 对博客建立索引
 type BlogIndexer interface {
 	// 加入对一个博客内容的索引
-	Add(blog *Blog) error
+	Add(blog *BlogItem) error
 	// 删除对一个博客内容的索引
-	Delete(blog *Blog) error
+	Delete(blog *BlogItem) error
 	// 搜索博客内容
 	Search(keyword string, num int) ([]string, error)
 	// 把对博客内容建立的索引保存到文件
@@ -18,12 +18,12 @@ type blogIndexerImpl struct {
 }
 
 // 加入对一个博客内容的索引
-func (bi *blogIndexerImpl) Add(blog *Blog) error {
+func (bi *blogIndexerImpl) Add(blog *BlogItem) error {
 	return bi.Indexer.Index(blog.Url, blog)
 }
 
 // 删除对一个博客内容的索引
-func (bi *blogIndexerImpl) Delete(blog *Blog) error {
+func (bi *blogIndexerImpl) Delete(blog *BlogItem) error {
 	return bi.Indexer.Delete(blog.Url)
 }
 

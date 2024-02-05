@@ -206,6 +206,7 @@ func NewSearchByContentMatch(name, brief string, fileManager FileManager, hideMa
 
 // searcher according to bleve file index engine
 func NewSearcherByBleve(name, brief string, blogIndexer BlogIndexer, config *Config) Searcher {
+
 	f := func(keyword string, num int) ([]string, error) {
 		results, err := blogIndexer.Search(keyword, num)
 		if err != nil {

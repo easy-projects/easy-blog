@@ -13,7 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Blog struct {
+type BlogItem struct {
 	// Url 作为唯一标识符
 	Url string
 	Meta
@@ -26,6 +26,49 @@ type Meta struct {
 	Title       string   `yaml:"title"`
 	KeyWords    []string `yaml:"keywords"`
 	Description string   `yaml:"description"`
+}
+
+func LoadBlog(path string, hide, private GitIgnorer, config *Config) (*BlogItem, error) {
+	// 从文件中加载 blog
+	path = SimplifyPath(path)
+	log.Println("[load blog] path is file:", path)
+	var md []byte
+	var err error
+	var stat os.FileInfo
+	stat, err = os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	if stat.IsDir() {
+		md, err = RenderDir(path, hide, private, config)
+	} else {
+		md, err = os.ReadFile(path)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err != nil {
+		return nil, err
+	}
+	meta, err := MdMeta(md)
+	if err != nil {
+		return nil, err
+	}
+	if meta.Title == "" {
+		meta.Title = filepath.Base(path)
+		meta.Title = meta.Title[:len(meta.Title)-len(filepath.Ext(meta.Title))]
+	}
+	url := BLOG_ROUTER + path[len(config.BLOG_PATH):]
+	html, err := Md2Html(md, meta.Title, config)
+	if err != nil {
+		return nil, err
+	}
+	return &BlogItem{
+		Url:  url,
+		Meta: meta,
+		Md:   string(md),
+		Html: string(html),
+	}, nil
 }
 
 func MdMeta(md []byte) (meta Meta, err error) {

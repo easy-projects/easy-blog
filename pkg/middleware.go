@@ -19,16 +19,18 @@ import (
 // ===== middlewares =====
 
 // === rate limit ===
-func LimitMiddleware(lmt *limiter.Limiter) gin.HandlerFunc {
+func LimitMiddleware(lmts ...*limiter.Limiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		httpError := tollbooth.LimitByRequest(lmt, c.Writer, c.Request)
-		if httpError != nil {
-			c.AbortWithStatusJSON(httpError.StatusCode, gin.H{
-				"error": httpError.Message,
-			})
-			return
+		for _, lmt := range lmts {
+			httpError := tollbooth.LimitByRequest(lmt, c.Writer, c.Request)
+			if httpError != nil {
+				c.AbortWithStatusJSON(httpError.StatusCode, gin.H{
+					"error": httpError.Message,
+				})
+				c.Abort()
+				return
+			}
 		}
-		c.Next()
 	}
 }
 
@@ -41,7 +43,7 @@ func FileUpdateMiddleware(cache Cache, fileManager FileManager, fileManagerLock 
 		fileManagerLock.Lock()
 		if fileManager.Changed(path) {
 			log.Println("[file update] file changed:", path)
-			cache.Remove("html:" + url)
+			cache.Remove("file:" + url)
 			fileManager.SetChanged(path, false)
 		} else {
 			log.Println("[file update] file not changed:", path)
@@ -54,114 +56,60 @@ func FileUpdateMiddleware(cache Cache, fileManager FileManager, fileManagerLock 
 func FileCacheMiddleware(cache Cache) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		url := c.Request.URL.Path
-		content, found := cache.Get("html:" + url)
-		contentType := func() string {
-			if strings.HasSuffix(c.Request.URL.Path, ".png") || strings.HasSuffix(c.Request.URL.Path, ".jpg") || strings.HasSuffix(c.Request.URL.Path, ".jpeg") {
-				return fmt.Sprintf("image/%s", filepath.Ext(c.Request.URL.Path)[1:])
-			}
-			return "text/html; charset=utf-8"
+		fileI, found := cache.Get("file:" + url)
+		var contentType string
+		if strings.HasSuffix(c.Request.URL.Path, ".png") || strings.HasSuffix(c.Request.URL.Path, ".jpg") || strings.HasSuffix(c.Request.URL.Path, ".jpeg") {
+			contentType = fmt.Sprintf("image/%s", filepath.Ext(c.Request.URL.Path)[1:])
+		} else {
+			contentType = "text/html; charset=utf-8"
 		}
 		if found {
 			log.Println("[cache] hit:", url)
-			c.Data(http.StatusOK, contentType(), content.([]byte))
+			c.Data(http.StatusOK, contentType, fileI.([]byte))
 			c.Abort()
 			return
 		}
-		c.Next()
-		c.Abort()
-		if c.Writer.Status() == http.StatusOK {
-			contentI, found := c.Get("html")
-			if found {
-				cache.Set("html:"+url, contentI)
-			}
-			content, found = c.Get("file")
-			if found {
-				cache.Set("file:"+url, content)
-			}
-			meta, found := c.Get("meta")
-			if found {
-				cache.Set("meta:"+url, meta)
-			}
-			// store blog in blog index
-			blog, found := c.Get("blog")
-			if found {
-				cache.Set("blog:"+url, blog)
-			}
-		}
+		log.Println("[cache] miss:", url)
 	}
 }
 
 // === handle content ===
 
-// if file is dir or md,then render to html
-func RenderMdMiddleware(config *Config) func(c *gin.Context) {
-	return func(c *gin.Context) {
-		c.Next()
-		c.Abort()
-		url := c.Request.URL.Path
-		file, found := c.Get("file")
-		found = found && (strings.HasSuffix(url, ".md") || strings.HasSuffix(url, "/"))
-		if !found {
-			return
-		}
-		meta, err := MdMeta(file.([]byte))
-		if err != nil {
-			log.Println("[render md] get meta error:", err)
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-		if meta.Title == "" {
-			meta.Title = filepath.Base(url)
-			meta.Title = meta.Title[:len(meta.Title)-len(filepath.Ext(meta.Title))]
-		}
-		c.Set("meta", meta)
-		log.Println("[render md] render md:", url)
-		html, err := Md2Html(file.([]byte), meta.Title, config)
-		if err != nil {
-			log.Println("[render md] render md error:", err)
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-		log.Println("[render md] render md success:", url)
-		c.Data(http.StatusOK, "text/html; charset=utf-8", html)
-		c.Set("html", html)
-		// store it to blog
-		blog := Blog{
-			Url:  url,
-			Meta: meta,
-			Md:   string(file.([]byte)),
-			Html: string(html),
-		}
-		c.Set("blog", blog)
-	}
-}
-
-func LoadFileMiddleware(hide, private GitIgnorer, config *Config) func(c *gin.Context) {
+func LoadFileMiddleware(hide, private GitIgnorer, cache Cache, config *Config) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		url := c.Request.URL.Path
 		filePath := config.BLOG_PATH + "/" + url[len(BLOG_ROUTER)+1:]
-		stat, err := os.Stat(filePath)
-		if err != nil {
-			log.Println("[load file] load file error:", err)
-			c.AbortWithStatus(http.StatusNotFound)
+		filePath = SimplifyPath(filePath)
+		log.Println("[load blog] path:", filePath)
+		if !fsutil.IsExist(filepath.Clean(filePath)) {
+			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+				"error": "blog not found",
+			})
 			return
 		}
-		var bs []byte
-		var action string
-		if stat.IsDir() {
-			bs, err = RenderDir(filePath, hide, private, config)
-			action = "load dir"
+		var file []byte
+		if strings.HasSuffix(filePath, ".md") || strings.HasSuffix(filePath, ".markdown") || strings.HasSuffix(filePath, ".MD") || strings.HasSuffix(filePath, ".MARKDOWN") || strings.HasSuffix(filePath, "/") {
+			blog, err := LoadBlog(filePath, hide, private, config)
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+					"error": err.Error(),
+				})
+				return
+			}
+			cache.Set("blog:"+url, blog)
+			file = []byte(blog.Html)
 		} else {
-			bs, err = os.ReadFile(filePath)
-			action = "load file"
+			var err error
+			file, err = os.ReadFile(filePath)
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+					"error": err.Error(),
+				})
+				return
+			}
 		}
-		if err != nil {
-			log.Printf("[load file] %s error: %e\n", action, err)
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-		c.Set("file", bs)
-		c.Data(http.StatusOK, "text/html; charset=utf-8", bs)
+		cache.Set("file:"+url, []byte(file))
+		c.Data(http.StatusOK, "text/html; charset=utf-8", file)
 	}
 }
 
@@ -177,7 +125,6 @@ func PrivateMiddleWare(private GitIgnorer, config *Config) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusNotFound)
 			return
 		}
-		c.Next()
 	}
 }
 
@@ -190,17 +137,9 @@ func GenMiddleWare(config *Config) gin.HandlerFunc {
 		if c.Writer.Status() == http.StatusOK {
 			gen_path := GenPath(URL, config)
 			log.Println("[gen] gen:", gen_path)
-			var data []byte
-			dataI, found := c.Get("html")
-			if found {
-				data = dataI.([]byte)
-				log.Println("[gen] transform links in:", URL)
-				data = TransformLinks(data, config)
-			} else {
-				dataI := c.MustGet("file")
-				data = dataI.([]byte)
-			}
-			if err := fsutil.MustWrite(gen_path, data); err != nil {
+			blogI := c.MustGet("blog")
+			blog := blogI.(*BlogItem)
+			if err := fsutil.MustWrite(gen_path, []byte(blog.Html)); err != nil {
 				panic(err)
 			}
 		}
@@ -208,8 +147,7 @@ func GenMiddleWare(config *Config) gin.HandlerFunc {
 }
 
 // === handle search ===
-func SearchMiddleWare(searchers map[string]Searcher, cache Cache, fMgr FileManager, config *Config) func(c *gin.Context) {
-	// cache := NewCache(1000)
+func SearchMiddleWare(searchers map[string]Searcher, cache Cache, config *Config) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		keyword := c.Query("keyword")
 		if keyword == "" {
@@ -255,7 +193,6 @@ func SearchMiddleWare(searchers map[string]Searcher, cache Cache, fMgr FileManag
 			})
 			return
 		}
-		cache.Set(keyword, results)
 		c.JSON(http.StatusOK, results)
 	}
 }
