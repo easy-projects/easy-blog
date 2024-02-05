@@ -2,6 +2,9 @@ package pkg
 
 import (
 	"bytes"
+	"encoding/json"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -104,23 +107,48 @@ func NewSearcherByTitleWord2Vec(name, brief string, fileManager FileManager, hid
 
 // searcher according to plugin
 func NewSearcherByPlugin(plugin SearcherPlugin, fileManager FileManager, hideMatcher, privateMatcher GitIgnorer, config *Config) Searcher {
-	f := func(keyword string, num int) ([]string, error) {
-		cmd := exec.Command(plugin.Command)
-		cmd.Stdin = bytes.NewReader([]byte(keyword + "\n"))
-		bs, err := cmd.Output()
-		if err != nil {
-			return nil, err
-		}
-		bss := bytes.Split(bs, []byte("\n"))
-		results := make([]string, 0, len(bss))
-		for _, bs := range bss {
-			path := string(bs)
-			if PathMatch(path, hideMatcher, privateMatcher) {
-				continue
+	var f func(keyword string, num int) ([]string, error)
+	if plugin.Type == "command" {
+		f = func(keyword string, num int) ([]string, error) {
+			cmd := exec.Command(plugin.Command)
+			cmd.Stdin = bytes.NewReader([]byte(keyword + "\n"))
+			bs, err := cmd.Output()
+			if err != nil {
+				return nil, err
 			}
-			results = append(results, path)
+			bss := bytes.Split(bs, []byte("\n"))
+			results := make([]string, 0, len(bss))
+			for _, bs := range bss {
+				path := string(bs)
+				if PathMatch(path, hideMatcher, privateMatcher) {
+					continue
+				}
+				results = append(results, path)
+			}
+			return results, nil
 		}
-		return results, nil
+	} else if plugin.Type == "url" {
+		f = func(keyword string, num int) ([]string, error) {
+			// put a get request to url
+			// /?keyword=keyword&num=num
+			resp, err := http.Get(plugin.Url + "?keyword=" + keyword + "&num=" + string(num))
+			if err != nil {
+				return nil, err
+			}
+			defer resp.Body.Close()
+			bs, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			// ["/path1", "/path2", ...]
+			var results []string
+			if err := json.Unmarshal(bs, &results); err != nil {
+				return nil, err
+			}
+			return results, nil
+		}
+	} else {
+		panic("unknown plugin type")
 	}
 	return searcherImpl{
 		f:     f,
