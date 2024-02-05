@@ -8,6 +8,7 @@ type Cache interface {
 	Get(key string) (interface{}, bool)
 	Set(key string, value interface{})
 	Remove(key string)
+	RemoveAll()
 }
 type cache struct {
 	arc *lru.ARCCache
@@ -21,6 +22,9 @@ func (c cache) Set(key string, value interface{}) {
 }
 func (c cache) Remove(key string) {
 	c.arc.Remove(key)
+}
+func (c cache) RemoveAll() {
+	c.arc.Purge()
 }
 
 func NewCache(size int) Cache {

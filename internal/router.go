@@ -19,6 +19,7 @@ func RouteApp(r *gin.Engine, config *pkg.Config, spider *fspider.Spider) {
 	fileManagerLock := &sync.RWMutex{}
 	fileCache := pkg.NewCache(1000)
 	searcherCache := pkg.NewCache(1000)
+	searcherCacheLock := &sync.RWMutex{}
 	hideMatcher := pkg.NewBlogIgnorer().AddPatterns(config.HIDE_PATHS...)
 	privateMatcher := pkg.NewBlogIgnorer().AddPatterns(config.PRIVATE_PATHS...)
 	r.Use(func(c *gin.Context) {
@@ -46,11 +47,41 @@ func RouteApp(r *gin.Engine, config *pkg.Config, spider *fspider.Spider) {
 	blog.GET("/*any")
 
 	// api
+	blogIndexer := pkg.NewBlogIndexer("blog.bleve")
+	go func() {
+		for _, path := range spider.AllPaths() {
+			path = pkg.SimplifyPath(path)
+			if pkg.PathMatch(path, hideMatcher, privateMatcher) {
+				continue
+			}
+			blog, err := pkg.LoadBlog(path, hideMatcher, privateMatcher, config)
+			if err == nil {
+				blogIndexer.Add(blog)
+			}
+		}
+		for path := range spider.FilesChanged() {
+			searcherCacheLock.Lock()
+			searcherCache.RemoveAll()
+			searcherCacheLock.Unlock()
+			path := pkg.SimplifyPath(path)
+			if pkg.PathMatch(path, hideMatcher, privateMatcher) {
+				blogIndexer.Delete(&pkg.BlogItem{Path: path})
+				continue
+			}
+			blog, err := pkg.LoadBlog(path, hideMatcher, privateMatcher, config)
+			if err == nil {
+				blogIndexer.Add(blog)
+			} else {
+				blogIndexer.Delete(&pkg.BlogItem{Path: path})
+			}
+		}
+	}()
 	api := r.Group(config.API_ROUTER)
 	searchers := map[string]pkg.Searcher{
-		"title":   pkg.NewSearcherByTitleEditDistance("title", "根据标题编辑距离搜索", fileManager, hideMatcher, privateMatcher),
-		"content": pkg.NewSearchByContentMatch("content", "根据文本内容匹配搜索", fileManager, hideMatcher, privateMatcher),
-		"keyword": pkg.NewSearcherByKeywork("keyword", "根据关键词搜索", fileManager, hideMatcher, privateMatcher),
+		"title":   pkg.NewSearcherByTitle("title", "根据标题编辑距离搜索", fileManager, hideMatcher, privateMatcher),
+		"content": pkg.NewSearchByContentMatch("content", "根据文本内容匹配搜索", fileManager, fileCache, hideMatcher, privateMatcher, config),
+		"keyword": pkg.NewSearcherByKeywork("keyword", "根据关键词搜索", fileManager, fileCache, hideMatcher, privateMatcher, config),
+		"bleve":   pkg.NewSearcherByBleve("bleve", "根据bleve搜索", blogIndexer, config),
 	}
 	for _, plugin := range config.SEARCH_PLUGINS {
 		searcher := pkg.NewSearcherByPlugin(plugin, fileManager, hideMatcher, privateMatcher, config)

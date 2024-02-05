@@ -8,14 +8,15 @@ import (
 	"path/filepath"
 	"regexp"
 
+	fsutil "github.com/cncsmonster/gofsutil"
 	"github.com/easy-projects/easyblog/pkg/log"
 	"github.com/google/shlex"
 	"gopkg.in/yaml.v3"
 )
 
 type BlogItem struct {
-	// Url 作为唯一标识符
-	Url string
+	// Path 作为唯一标识符
+	Path string
 	Meta
 	Md   string
 	Html string
@@ -31,7 +32,9 @@ type Meta struct {
 func LoadBlog(path string, hide, private GitIgnorer, config *Config) (*BlogItem, error) {
 	// 从文件中加载 blog
 	path = SimplifyPath(path)
-	log.Println("[load blog] path is file:", path)
+	if !fsutil.IsExist(path) {
+		return nil, fmt.Errorf("file not found: %s", path)
+	}
 	var md []byte
 	var err error
 	var stat os.FileInfo
@@ -61,7 +64,7 @@ func LoadBlog(path string, hide, private GitIgnorer, config *Config) (*BlogItem,
 		return nil, err
 	}
 	return &BlogItem{
-		Url:  url,
+		Path: url,
 		Meta: meta,
 		Md:   string(md),
 		Html: string(html),

@@ -11,11 +11,6 @@ import (
 
 // ====== config =====
 
-const (
-	BLOG_ROUTER string = "/blog"
-	API_ROUTER  string = "/api"
-)
-
 type Config struct {
 	sync.RWMutex   `yaml:"-"`
 	PORT           int

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
@@ -50,7 +49,7 @@ func (s searcherImpl) Brief() string {
 }
 
 // searcher according to title edit distance
-func NewSearcherByTitleEditDistance(name, brief string, fileManager FileManager, hideMatcher, privateMatcher GitIgnorer) Searcher {
+func NewSearcherByTitle(name, brief string, fileManager FileManager, hideMatcher, privateMatcher GitIgnorer) Searcher {
 	f := func(keyword string, num int) ([]string, error) {
 		paths := fileManager.Paths()
 		results := make([]string, 0, num)
@@ -111,10 +110,14 @@ func NewSearcherByPlugin(plugin SearcherPlugin, fileManager FileManager, hideMat
 	var f func(keyword string, num int) ([]string, error)
 	if plugin.Type == "command" {
 		f = func(keyword string, num int) ([]string, error) {
-			cmd := exec.Command(plugin.Command)
-			cmd.Stdin = bytes.NewReader([]byte(keyword + "\n"))
+			args := strings.Split(plugin.Command, " ")
+			args = append(args, keyword, fmt.Sprintf("%d", num))
+			cmd := exec.Command(args[0], args[1:]...)
 			bs, err := cmd.Output()
+			log.Println("[search by plugin] command:", plugin.Command, "keyword:", keyword, "num:", num)
+			log.Println("[search by plugin] result:", string(bs))
 			if err != nil {
+				log.Println("[search by plugin] error:", err)
 				return nil, err
 			}
 			bss := bytes.Split(bs, []byte("\n"))
@@ -158,51 +161,88 @@ func NewSearcherByPlugin(plugin SearcherPlugin, fileManager FileManager, hideMat
 }
 
 // searcher according to search-keyword and keywords in meta
-func NewSearcherByKeywork(name, brief string, fileManager FileManager, hideMatcher, privateMatcher GitIgnorer) Searcher {
+func NewSearcherByKeywork(name, brief string, fileManager FileManager, cache Cache, hideMatcher, privateMatcher GitIgnorer, config *Config) Searcher {
 	f := func(keyword string, num int) ([]string, error) {
 		log.Println("[search by keyword] keyword:", keyword)
-		type _Item struct {
-			path        string
-			keyMatchNum int
-		}
+		results := make([]string, 0, num)
 		paths := fileManager.Paths()
+		for _, path := range paths {
+			if PathMatch(path, hideMatcher, privateMatcher) {
+				continue
+			}
+			url := config.BLOG_ROUTER + path[len(config.BLOG_PATH):]
+			blog, found := cache.Get("blog:" + url)
+			var blogItem *BlogItem
+			if !found {
+				blog, err := LoadBlog(path, hideMatcher, privateMatcher, config)
+				if err != nil {
+					continue
+				}
+				cache.Set("blog:"+url, blog)
+				blogItem = blog
+			} else {
+				blogItem = blog.(*BlogItem)
+			}
+			for _, kw := range blogItem.Meta.KeyWords {
+				if strings.Contains(kw, keyword) {
+					results = append(results, path)
+					break
+				}
+			}
+			if len(results) >= num {
+				break
+			}
+		}
+		return results, nil
+	}
+	return searcherImpl{
+		f:     f,
+		name:  name,
+		brief: brief,
+	}
+}
+
+// according to the times of keyword in {content, title, meta}
+func NewSearchByContentMatch(name, brief string, fileManager FileManager, cache Cache, hideMatcher, privateMatcher GitIgnorer, config *Config) Searcher {
+	f := func(keyword string, num int) ([]string, error) {
+		paths := fileManager.Paths()
+		results := make([]string, 0, num)
+		type _Item struct {
+			path string
+			num  int
+		}
 		items := make([]_Item, 0, len(paths))
 		for _, path := range paths {
 			if PathMatch(path, hideMatcher, privateMatcher) {
 				continue
 			}
-			md, err := os.ReadFile(path)
-			if err != nil {
-				return nil, err
-			}
-			meta, err := MdMeta(md)
-			if err != nil {
-				return nil, err
-			}
-			keys := meta.KeyWords
-			var keyMatchNum int
-			for _, key := range keys {
-				if strings.Contains(key, keyword) {
-					keyMatchNum++
+			url := config.BLOG_ROUTER + path[len(config.BLOG_PATH):]
+			blog, found := cache.Get("blog:" + url)
+			var blogItem *BlogItem
+			if !found {
+				blog, err := LoadBlog(path, hideMatcher, privateMatcher, config)
+				if err != nil {
+					continue
 				}
+				cache.Set("blog:"+url, blog)
+				blogItem = blog
+			} else {
+				blogItem = blog.(*BlogItem)
 			}
-			// check how many keywords in content
-			md_s := string(md)
-			if strings.Contains(md_s, keyword) {
-				keyMatchNum++
-			}
-			items = append(items, _Item{path: path, keyMatchNum: keyMatchNum})
+			num := strings.Count(blogItem.Md, keyword)
+			num += strings.Count(blogItem.Meta.Title, keyword)
+			num += strings.Count(blogItem.Meta.Description, keyword)
+			items = append(items, _Item{path: path, num: num})
 		}
 		sort.Slice(items, func(i, j int) bool {
-			if items[i].keyMatchNum > items[j].keyMatchNum {
+			if items[i].num > items[j].num {
 				return true
-			} else if items[i].keyMatchNum < items[j].keyMatchNum {
+			} else if items[i].num < items[j].num {
 				return false
 			} else {
 				return items[i].path < items[j].path
 			}
 		})
-		results := make([]string, 0, num)
 		for _, item := range items {
 			results = append(results, item.path)
 			if len(results) >= num {
@@ -218,23 +258,8 @@ func NewSearcherByKeywork(name, brief string, fileManager FileManager, hideMatch
 	}
 }
 
-// according to the times of keyword in {content, title, meta}
-func NewSearchByContentMatch(name, brief string, fileManager FileManager, hideMatcher, privateMatcher GitIgnorer) Searcher {
-	f := func(keyword string, num int) ([]string, error) {
-		// TODO
-
-		return nil, nil
-	}
-	return searcherImpl{
-		f:     f,
-		name:  name,
-		brief: brief,
-	}
-}
-
 // searcher according to bleve file index engine
 func NewSearcherByBleve(name, brief string, blogIndexer BlogIndexer, config *Config) Searcher {
-
 	f := func(keyword string, num int) ([]string, error) {
 		results, err := blogIndexer.Search(keyword, num)
 		if err != nil {
