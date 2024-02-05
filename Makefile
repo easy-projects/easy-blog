@@ -13,7 +13,7 @@ preprocess:
 		--private ./build_resources/private.md \
 		--help ./build_resources/help \
 		--version ./build_resources/version \
-		--output ./include_files.go
+		--output ./cmd/eb/resources.go
 	@-rm -f ebbuilder
 	@-del  .\ebbuilder.exe
 	@echo "Done."

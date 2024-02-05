@@ -4,8 +4,17 @@ import (
 	"fmt"
 	"os"
 
-	eb "github.com/easy-projects/easyblog"
+	"log"
+
 	"github.com/easy-projects/easyblog/pkg"
+	"github.com/gin-contrib/cors"
+
+	"github.com/cncsmonster/fspider"
+	fsutil "github.com/cncsmonster/gofsutil"
+	"github.com/easy-projects/easyblog/internal"
+
+	. "github.com/easy-projects/easyblog/pkg"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -17,14 +26,47 @@ func main() {
 	}
 	switch os.Args[1] {
 	case "-h":
-		eb.Help()
+		Help()
 	case "-n":
-		eb.New()
+		New()
 	case "-s":
-		eb.Serve(pkg.LoadConfig("eb.yaml"))
+		Serve(pkg.LoadConfig("eb.yaml"))
 	case "-v":
-		eb.Version()
+		Version()
 	default:
 		fmt.Println("unknown command")
 	}
+}
+
+func Help() {
+	help_message := string(DEFAULT_HELP)
+	fmt.Println(help_message)
+}
+
+func New() {
+	fsutil.MustWrite("eb.yaml", DEFAULT_CONFIG)
+	fsutil.MustWrite("blog/intro.md", DEFAULT_BLOG)
+	fsutil.MustWrite("blog/private.md", DEFAULT_PRIVATE)
+	fsutil.MustWrite("blog/keyword.md", DEFAULT_KEYWORD)
+	fsutil.MustWrite("blog/hide.md", DEFAULT_HIDE)
+	fsutil.MustWrite("./template.html", DEFAULT_TEMPLATE)
+	fsutil.MustWrite("blog/favicon.ico", DEFAULT_FAVICON)
+	fsutil.MustWrite("blog/vue.js", DEFAULT_VUE_JS)
+}
+
+func Serve(config *Config) {
+	r := gin.Default()
+	r.Use(cors.Default())
+	spider := fspider.NewSpider()
+	defer spider.Stop()
+	spider.Spide(config.BLOG_PATH)
+	internal.RouteApp(r, config, spider)
+	port := fmt.Sprintf(":%d", config.PORT)
+	if err := r.Run(port); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func Version() {
+	fmt.Println(string(DEFAULT_VERSION))
 }

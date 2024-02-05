@@ -47,9 +47,6 @@ func LoadBlog(path string, hide, private GitIgnorer, config *Config) (*BlogItem,
 	if err != nil {
 		return nil, err
 	}
-	if err != nil {
-		return nil, err
-	}
 	meta, err := MdMeta(md)
 	if err != nil {
 		return nil, err
@@ -58,7 +55,7 @@ func LoadBlog(path string, hide, private GitIgnorer, config *Config) (*BlogItem,
 		meta.Title = filepath.Base(path)
 		meta.Title = meta.Title[:len(meta.Title)-len(filepath.Ext(meta.Title))]
 	}
-	url := BLOG_ROUTER + path[len(config.BLOG_PATH):]
+	url := config.BLOG_ROUTER + path[len(config.BLOG_PATH):]
 	html, err := Md2Html(md, meta.Title, config)
 	if err != nil {
 		return nil, err
@@ -122,7 +119,7 @@ func RenderDir(path string, hide, private GitIgnorer, config *Config) (md []byte
 			full_path += "/"
 			name += "/"
 		}
-		url := BLOG_ROUTER + full_path[len(config.BLOG_PATH):]
+		url := config.BLOG_ROUTER + full_path[len(config.BLOG_PATH):]
 		name = filepath.ToSlash(name)
 		dir.WriteString(fmt.Sprintf("<a href=\"%s\">%s</a><br>", url, name))
 	}

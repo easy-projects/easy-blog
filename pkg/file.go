@@ -22,7 +22,6 @@ type FileManager interface {
 	Changed(path string) bool
 	// SetChanged 设置path对应的文件是否被修改过
 	SetChanged(path string, changed bool)
-	Close()
 }
 type fileManagerImpl struct {
 	pathChanged map[string]bool
@@ -31,15 +30,14 @@ type fileManagerImpl struct {
 	sync.RWMutex
 }
 
-func NewFileManager(rootPath string) FileManager {
+func NewFileManager(spider *fspider.Spider) FileManager {
 	fileManager := &fileManagerImpl{
 		pathChanged: make(map[string]bool, 100),
 		changedNum:  atomic.Int32{},
-		spider:      fspider.NewSpider(),
+		spider:      spider,
 		RWMutex:     sync.RWMutex{},
 	}
 	fileManager.changedNum.Store(0)
-	fileManager.spider.Spide(rootPath)
 	go func() {
 		for path := range fileManager.spider.FilesChanged() {
 			path = filepath.ToSlash(filepath.Clean(path))
@@ -97,9 +95,4 @@ func (fMgr *fileManagerImpl) SetChanged(path string, changed bool) {
 		fMgr.changedNum.Add(-1)
 	}
 	fMgr.Unlock()
-}
-
-// close file manager
-func (fMgr *fileManagerImpl) Close() {
-	fMgr.spider.Stop()
 }

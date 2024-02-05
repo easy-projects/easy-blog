@@ -28,7 +28,7 @@ func PathMatch(path string, matcher ...GitIgnorer) bool {
 
 // === path generate ===
 func GenPath(url string, config *Config) string {
-	path := config.GEN_PATH + "/" + url[len(BLOG_ROUTER)+1:]
+	path := config.GEN_PATH + "/" + url[len(config.BLOG_ROUTER)+1:]
 	if strings.HasSuffix(path, "/") {
 		return path + "index.html"
 	} else if strings.HasSuffix(path, ".md") {

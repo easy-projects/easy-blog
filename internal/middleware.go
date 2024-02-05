@@ -1,4 +1,4 @@
-package pkg
+package internal
 
 import (
 	"fmt"
@@ -12,6 +12,7 @@ import (
 	fsutil "github.com/cncsmonster/gofsutil"
 	"github.com/didip/tollbooth"
 	"github.com/didip/tollbooth/limiter"
+	"github.com/easy-projects/easyblog/pkg"
 	"github.com/easy-projects/easyblog/pkg/log"
 	"github.com/gin-gonic/gin"
 )
@@ -35,10 +36,10 @@ func LimitMiddleware(lmts ...*limiter.Limiter) gin.HandlerFunc {
 }
 
 // === index ===
-func FileUpdateMiddleware(cache Cache, fileManager FileManager, fileManagerLock *sync.RWMutex, config *Config) func(c *gin.Context) {
+func FileUpdateMiddleware(cache pkg.Cache, fileManager pkg.FileManager, fileManagerLock *sync.RWMutex, config *pkg.Config) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		url := c.Request.URL.Path
-		path := config.BLOG_PATH + "/" + url[len(BLOG_ROUTER)+1:]
+		path := config.BLOG_PATH + "/" + url[len(config.BLOG_ROUTER)+1:]
 		path = filepath.ToSlash(filepath.Clean(path))
 		fileManagerLock.Lock()
 		if fileManager.Changed(path) {
@@ -53,7 +54,7 @@ func FileUpdateMiddleware(cache Cache, fileManager FileManager, fileManagerLock 
 }
 
 // === cache ===
-func FileCacheMiddleware(cache Cache) gin.HandlerFunc {
+func FileCacheMiddleware(cache pkg.Cache) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		url := c.Request.URL.Path
 		fileI, found := cache.Get("file:" + url)
@@ -75,11 +76,10 @@ func FileCacheMiddleware(cache Cache) gin.HandlerFunc {
 
 // === handle content ===
 
-func LoadFileMiddleware(hide, private GitIgnorer, cache Cache, config *Config) func(c *gin.Context) {
+func LoadBlogMiddleware(hide, private pkg.GitIgnorer, cache pkg.Cache, config *pkg.Config) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		url := c.Request.URL.Path
-		filePath := config.BLOG_PATH + "/" + url[len(BLOG_ROUTER)+1:]
-		filePath = SimplifyPath(filePath)
+		filePath := config.BLOG_PATH + "/" + url[len(config.BLOG_ROUTER)+1:]
 		log.Println("[load blog] path:", filePath)
 		if !fsutil.IsExist(filepath.Clean(filePath)) {
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
@@ -87,40 +87,39 @@ func LoadFileMiddleware(hide, private GitIgnorer, cache Cache, config *Config) f
 			})
 			return
 		}
-		var file []byte
-		if strings.HasSuffix(filePath, ".md") || strings.HasSuffix(filePath, ".markdown") || strings.HasSuffix(filePath, ".MD") || strings.HasSuffix(filePath, ".MARKDOWN") || strings.HasSuffix(filePath, "/") {
-			blog, err := LoadBlog(filePath, hide, private, config)
+		if !strings.HasSuffix(url, ".md") && !strings.HasSuffix(filePath, ".MARKDOWN") && !strings.HasSuffix(filePath, "/") {
+			bs, err := os.ReadFile(filePath)
 			if err != nil {
 				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 					"error": err.Error(),
 				})
-				return
 			}
-			cache.Set("blog:"+url, blog)
-			file = []byte(blog.Html)
-		} else {
-			var err error
-			file, err = os.ReadFile(filePath)
-			if err != nil {
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-					"error": err.Error(),
-				})
-				return
-			}
+			c.File(filePath)
+			c.Set("file", bs)
+			return
 		}
-		cache.Set("file:"+url, []byte(file))
+		blog, err := pkg.LoadBlog(filePath, hide, private, config)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+		cache.Set("blog:"+url, blog)
+		file := []byte(blog.Html)
+		c.Set("file", []byte(file))
 		c.Data(http.StatusOK, "text/html; charset=utf-8", file)
 	}
 }
 
 // === handle private ===
-func PrivateMiddleWare(private GitIgnorer, config *Config) gin.HandlerFunc {
+func PrivateMiddleWare(private pkg.GitIgnorer, config *pkg.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		url := c.Request.URL.Path
-		path := config.BLOG_PATH + "/" + url[len(BLOG_ROUTER)+1:]
-		path = SimplifyPath(path)
+		path := config.BLOG_PATH + "/" + url[len(config.BLOG_ROUTER)+1:]
+		path = pkg.SimplifyPath(path)
 		log.Println("[check private] path:", path)
-		if PathMatch(path, private) {
+		if pkg.PathMatch(path, private) {
 			log.Println("[check private] path match private:", path)
 			c.AbortWithStatus(http.StatusNotFound)
 			return
@@ -129,17 +128,19 @@ func PrivateMiddleWare(private GitIgnorer, config *Config) gin.HandlerFunc {
 }
 
 // === handle gen ===
-func GenMiddleWare(config *Config) gin.HandlerFunc {
+func GenMiddleWare(config *pkg.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		URL := c.Request.URL.Path
 		c.Next()
 		c.Abort()
 		if c.Writer.Status() == http.StatusOK {
-			gen_path := GenPath(URL, config)
+			gen_path := pkg.GenPath(URL, config)
 			log.Println("[gen] gen:", gen_path)
-			blogI := c.MustGet("blog")
-			blog := blogI.(*BlogItem)
-			if err := fsutil.MustWrite(gen_path, []byte(blog.Html)); err != nil {
+			file := c.MustGet("file").([]byte)
+			if strings.HasSuffix(gen_path, "/") || strings.HasSuffix(gen_path, ".md") || strings.HasSuffix(gen_path, ".md") {
+				file = pkg.TransformLinks(file, config)
+			}
+			if err := fsutil.MustWrite(gen_path, file); err != nil {
 				panic(err)
 			}
 		}
@@ -147,7 +148,7 @@ func GenMiddleWare(config *Config) gin.HandlerFunc {
 }
 
 // === handle search ===
-func SearchMiddleWare(searchers map[string]Searcher, cache Cache, config *Config) func(c *gin.Context) {
+func SearchMiddleWare(searchers map[string]pkg.Searcher, cache pkg.Cache, config *pkg.Config) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		keyword := c.Query("keyword")
 		if keyword == "" {
@@ -184,7 +185,7 @@ func SearchMiddleWare(searchers map[string]Searcher, cache Cache, config *Config
 		// convert file paths to links
 		for i, path := range results {
 			// 如果路径是dir的 话,则生成的url 结尾要增加/
-			results[i] = BLOG_ROUTER + path[len(config.BLOG_PATH):]
+			results[i] = config.BLOG_ROUTER + path[len(config.BLOG_PATH):]
 			results[i] = filepath.ToSlash(results[i])
 		}
 		if err != nil {

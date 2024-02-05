@@ -19,6 +19,8 @@ const (
 type Config struct {
 	sync.RWMutex   `yaml:"-"`
 	PORT           int
+	BLOG_ROUTER    string
+	API_ROUTER     string
 	BLOG_PATH      string
 	GEN_PATH       string
 	NOT_GEN        bool
@@ -48,6 +50,12 @@ func LoadConfig(file string) *Config {
 	}
 	config.BLOG_PATH = SimplifyPath(config.BLOG_PATH)
 	config.GEN_PATH = SimplifyPath(config.GEN_PATH)
+	if config.BLOG_ROUTER == "" {
+		config.BLOG_ROUTER = "/blog"
+	}
+	if config.API_ROUTER == "" {
+		config.API_ROUTER = "/api"
+	}
 	if config.SEARCH_NUM == 0 {
 		config.SEARCH_NUM = 12
 	}
