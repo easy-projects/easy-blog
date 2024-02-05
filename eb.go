@@ -35,6 +35,7 @@ func Serve(config *Config) {
 	r := gin.Default()
 	r.Use(cors.Default())
 	fileManager := NewFileManager(config.BLOG_PATH)
+	defer fileManager.Close()
 	fileManagerLock := &sync.RWMutex{}
 	fileCache := NewCache(1000)
 	searcherCache := NewCache(1000)

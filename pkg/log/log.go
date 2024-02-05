@@ -4,12 +4,12 @@ package log
 
 import stdlog "log"
 
-func Printf(format string, v ...interface{}) {
+func Printf(format string, v ...any) {
 	stdlog.Printf(format, v...)
 }
-func Println(v ...interface{}) {
+func Println(v ...any) {
 	stdlog.Println(v...)
 }
-func Fatal(v ...interface{}) {
+func Fatal(v ...any) {
 	stdlog.Fatal(v...)
 }

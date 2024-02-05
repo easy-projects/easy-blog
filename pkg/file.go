@@ -22,6 +22,7 @@ type FileManager interface {
 	Changed(path string) bool
 	// SetChanged 设置path对应的文件是否被修改过
 	SetChanged(path string, changed bool)
+	Close()
 }
 type fileManagerImpl struct {
 	pathChanged map[string]bool
@@ -96,4 +97,9 @@ func (fMgr *fileManagerImpl) SetChanged(path string, changed bool) {
 		fMgr.changedNum.Add(-1)
 	}
 	fMgr.Unlock()
+}
+
+// close file manager
+func (fMgr *fileManagerImpl) Close() {
+	fMgr.spider.Stop()
 }
