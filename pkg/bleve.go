@@ -1,6 +1,8 @@
 package pkg
 
 import (
+	"strings"
+
 	"github.com/blevesearch/bleve"
 )
 
@@ -25,17 +27,17 @@ type BlogIndex struct {
 
 // 加入对一个博客内容的索引
 func (bi *blogIndexerImpl) Add(blog *BlogItem) error {
-	// if strings.HasPrefix(blog.Path, "/blogg/") {
-	// 	panic("Add can not delete blogg")
-	// }
+	if strings.HasPrefix(blog.Path, "/blogg/") {
+		panic("Add can not use blogg")
+	}
 	return bi.Indexer.Index(blog.Path, BlogIndex{Path: blog.Path, Meta: blog.Meta})
 }
 
 // 删除对一个博客内容的索引
 func (bi *blogIndexerImpl) Delete(blog *BlogItem) error {
-	// if strings.HasPrefix(blog.Path, "/blogg/") {
-	// 	panic("Delete can not delete blogg")
-	// }
+	if strings.HasPrefix(blog.Path, "/blogg/") {
+		panic("Delete can not delete blogg")
+	}
 	return bi.Indexer.Delete(blog.Path)
 }
 
@@ -62,9 +64,9 @@ func (bi *blogIndexerImpl) Search(keyword string, num int) ([]string, error) {
 	}
 	results := make([]string, 0, len(searchResults.Hits))
 	for _, hit := range searchResults.Hits {
-		// if strings.HasPrefix(hit.ID, "/blogg/") {
-		// 	panic("can not delete blogg")
-		// }
+		if strings.HasPrefix(hit.ID, "/blogg/") {
+			panic("can not use blogg")
+		}
 		results = append(results, hit.ID)
 	}
 	return results, nil

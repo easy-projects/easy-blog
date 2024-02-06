@@ -58,13 +58,12 @@ func LoadBlog(path string, hide, private GitIgnorer, config *Config) (*BlogItem,
 		meta.Title = filepath.Base(path)
 		meta.Title = meta.Title[:len(meta.Title)-len(filepath.Ext(meta.Title))]
 	}
-	url := config.BLOG_ROUTER + path[len(config.BLOG_PATH):]
 	html, err := Md2Html(md, meta.Title, config)
 	if err != nil {
 		return nil, err
 	}
 	return &BlogItem{
-		Path: url,
+		Path: path,
 		Meta: meta,
 		Md:   string(md),
 		Html: string(html),
