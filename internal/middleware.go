@@ -182,18 +182,23 @@ func SearchMiddleWare(searchers map[string]pkg.Searcher, cache pkg.Cache, config
 			return
 		}
 		results, err := searcher.Search(keyword, num)
-		// convert file paths to links
-		for i, path := range results {
-			// 如果路径是dir的 话,则生成的url 结尾要增加/
-			results[i] = config.BLOG_ROUTER + path[len(config.BLOG_PATH):]
-			results[i] = filepath.ToSlash(results[i])
-		}
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
 			})
 			return
 		}
-		c.JSON(http.StatusOK, results)
+		retResults := make([]string, 0, len(results))
+		// convert file paths to links
+		for _, path := range results {
+			if path == "" || len(path) < len(config.BLOG_PATH) {
+				log.Println("[search] result  path:", path, "is empty or too short")
+				continue
+			}
+			path = filepath.ToSlash(path)
+			path = config.BLOG_ROUTER + path[len(config.BLOG_PATH):]
+			retResults = append(retResults, path)
+		}
+		c.JSON(http.StatusOK, retResults)
 	}
 }

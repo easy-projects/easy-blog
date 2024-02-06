@@ -110,16 +110,46 @@ func NewSearcherByPlugin(plugin SearcherPlugin, fileManager FileManager, hideMat
 	var f func(keyword string, num int) ([]string, error)
 	if plugin.Type == "command" {
 		f = func(keyword string, num int) ([]string, error) {
-			args := strings.Split(plugin.Command, " ")
-			args = append(args, keyword, fmt.Sprintf("%d", num))
-			cmd := exec.Command(args[0], args[1:]...)
-			bs, err := cmd.Output()
-			log.Println("[search by plugin] command:", plugin.Command, "keyword:", keyword, "num:", num)
-			log.Println("[search by plugin] result:", string(bs))
-			if err != nil {
-				log.Println("[search by plugin] error:", err)
-				return nil, err
+			command := strings.ReplaceAll(plugin.Command, "${BLOG_PATH}", config.BLOG_PATH)
+			command = strings.ReplaceAll(command, "${KEY_WORD}", keyword)
+			command = strings.ReplaceAll(command, "${NUM}", fmt.Sprintf("%d", num))
+			commands := strings.Split(command, "|")
+			var lastStdout io.Reader
+			var bs []byte
+			var err error
+			for i, cmdStr := range commands {
+				cmdStr = strings.TrimSpace(cmdStr)
+				args := strings.Split(cmdStr, " ")
+				for i, arg := range args {
+					args[i] = strings.TrimSpace(arg)
+				}
+				log.Println("[search by command] command:", args)
+				cmd := exec.Command(args[0])
+				cmd.Args = args
+				if lastStdout != nil {
+					cmd.Stdin = lastStdout
+				}
+				if i == len(commands)-1 {
+					bs, err = cmd.Output()
+					if err != nil {
+						log.Println("[search by command] failed to exec command:", err)
+						return nil, err
+					}
+					break
+				}
+				stdout, err := cmd.StdoutPipe()
+				if err != nil {
+					log.Println("[search by command] failed to get stdout pipe:", err)
+					return nil, err
+				}
+				lastStdout = stdout
+				err = cmd.Start()
+				if err != nil {
+					log.Println("[search by command] failed to start command:", err)
+					return nil, err
+				}
 			}
+			bs = bytes.TrimSpace(bs)
 			bss := bytes.Split(bs, []byte("\n"))
 			results := make([]string, 0, len(bss))
 			for _, bs := range bss {
