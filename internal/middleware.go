@@ -197,6 +197,7 @@ func SearchMiddleWare(searchers map[string]pkg.Searcher, cache pkg.Cache, config
 			}
 			path = filepath.ToSlash(path)
 			path = config.BLOG_ROUTER + path[len(config.BLOG_PATH):]
+			path = pkg.SimplifyPath(path)
 			retResults = append(retResults, path)
 		}
 		c.JSON(http.StatusOK, retResults)

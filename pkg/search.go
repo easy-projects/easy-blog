@@ -92,33 +92,28 @@ func NewSearcherByTitle(name, brief string, fileManager FileManager, hideMatcher
 	}
 }
 
-// searcher according to title word2vec
-func NewSearcherByTitleWord2Vec(name, brief string, fileManager FileManager, hideMatcher, privateMatcher GitIgnorer) Searcher {
-	f := func(keyword string, num int) ([]string, error) {
-		// TODO
-		return nil, nil
-	}
-	return searcherImpl{
-		f:     f,
-		name:  name,
-		brief: brief,
-	}
-}
-
 // searcher according to plugin
 func NewSearcherByPlugin(plugin SearcherPlugin, fileManager FileManager, hideMatcher, privateMatcher GitIgnorer, config *Config) Searcher {
 	var f func(keyword string, num int) ([]string, error)
 	if plugin.Type == "command" {
 		f = func(keyword string, num int) ([]string, error) {
-			command := strings.ReplaceAll(plugin.Command, "${BLOG_PATH}", config.BLOG_PATH)
-			command = strings.ReplaceAll(command, "${KEY_WORD}", keyword)
-			command = strings.ReplaceAll(command, "${NUM}", fmt.Sprintf("%d", num))
-			commands := strings.Split(command, "|")
+			commands := strings.Split(plugin.Command, "|")
+			BLOG_PATH := config.BLOG_PATH
+			KEY_WORD := keyword
+			NUM := fmt.Sprintf("%d", num)
+			var ignoress []string
+			ignoress = append(ignoress, config.HIDE_PATHS...)
+			ignoress = append(ignoress, config.PRIVATE_PATHS...)
+			IGNORE := strings.Join(ignoress, ",")
 			var lastStdout io.Reader
 			var bs []byte
 			var err error
 			for i, cmdStr := range commands {
 				cmdStr = strings.TrimSpace(cmdStr)
+				cmdStr = strings.ReplaceAll(cmdStr, "${BLOG_PATH}", BLOG_PATH)
+				cmdStr = strings.ReplaceAll(cmdStr, "${KEY_WORD}", KEY_WORD)
+				cmdStr = strings.ReplaceAll(cmdStr, "${NUM}", NUM)
+				cmdStr = strings.ReplaceAll(cmdStr, "${IGNORE}", IGNORE)
 				args := strings.Split(cmdStr, " ")
 				for i, arg := range args {
 					args[i] = strings.TrimSpace(arg)
