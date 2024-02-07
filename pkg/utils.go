@@ -34,6 +34,7 @@ func GenPath(url string, config *Config) string {
 	} else if strings.HasSuffix(path, ".md") {
 		return path[:len(path)-len(filepath.Ext(path))] + ".html"
 	}
+	path = SimplifyPath(path)
 	return path
 }
 

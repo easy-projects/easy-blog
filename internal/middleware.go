@@ -82,6 +82,7 @@ func LoadBlogMiddleware(hide, private pkg.GitIgnorer, cache pkg.Cache, config *p
 		log.Println("[load blog] path:", filePath)
 		blog, err := pkg.LoadBlog(filePath, hide, private, config)
 		if err != nil {
+			// blog.Html = os.ReadFile(filePath)
 			c.File(filePath)
 			return
 		}
