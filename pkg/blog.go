@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	fsutil "github.com/cncsmonster/gofsutil"
 	"github.com/easy-projects/easyblog/pkg/log"
@@ -44,6 +45,8 @@ func LoadBlog(path string, hide, private GitIgnorer, config *Config) (*BlogItem,
 	}
 	if stat.IsDir() {
 		md, err = RenderDir(path, hide, private, config)
+	} else if !strings.HasSuffix(path, ".md") && !strings.HasSuffix(path, ".markdown") {
+		err = fmt.Errorf("file is not a markdown file: %s", path)
 	} else {
 		md, err = os.ReadFile(path)
 	}

@@ -77,4 +77,3 @@ goto :eof
     go install -ldflags "-s -w" -tags=release ./cmd/ebbuilder
     echo Done.
     goto :eof
-```
