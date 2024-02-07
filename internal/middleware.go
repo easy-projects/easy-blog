@@ -3,7 +3,6 @@ package internal
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -81,28 +80,9 @@ func LoadBlogMiddleware(hide, private pkg.GitIgnorer, cache pkg.Cache, config *p
 		url := c.Request.URL.Path
 		filePath := config.BLOG_PATH + "/" + url[len(config.BLOG_ROUTER)+1:]
 		log.Println("[load blog] path:", filePath)
-		if !fsutil.IsExist(filepath.Clean(filePath)) {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-				"error": "blog not found",
-			})
-			return
-		}
-		if !strings.HasSuffix(url, ".md") && !strings.HasSuffix(filePath, ".MARKDOWN") && !strings.HasSuffix(filePath, "/") {
-			bs, err := os.ReadFile(filePath)
-			if err != nil {
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-					"error": err.Error(),
-				})
-			}
-			c.File(filePath)
-			c.Set("file", bs)
-			return
-		}
 		blog, err := pkg.LoadBlog(filePath, hide, private, config)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-				"error": err.Error(),
-			})
+			c.File(filePath)
 			return
 		}
 		cache.Set("blog:"+url, blog)
