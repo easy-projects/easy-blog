@@ -47,7 +47,7 @@ func RouteApp(r *gin.Engine, config *pkg.Config, spider *fspider.Spider) {
 	blog.GET("/*any")
 
 	// api
-	blogIndexer := pkg.NewBlogIndexer("blog.bleve")
+	blogIndexer := pkg.NewBlogIndexer(config.APP_DATA_PATH + "/" + "blog.bleve")
 	go func() {
 		for _, path := range spider.AllPaths() {
 			path = pkg.SimplifyPath(path)
