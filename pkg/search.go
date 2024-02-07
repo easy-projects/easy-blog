@@ -110,13 +110,13 @@ func NewSearcherByPlugin(plugin SearcherPlugin, fileManager FileManager, hideMat
 			var err error
 			for i, cmdStr := range commands {
 				cmdStr = strings.TrimSpace(cmdStr)
-				cmdStr = strings.ReplaceAll(cmdStr, "${BLOG_PATH}", BLOG_PATH)
-				cmdStr = strings.ReplaceAll(cmdStr, "${KEY_WORD}", KEY_WORD)
-				cmdStr = strings.ReplaceAll(cmdStr, "${NUM}", NUM)
-				cmdStr = strings.ReplaceAll(cmdStr, "${IGNORE}", IGNORE)
 				args := strings.Split(cmdStr, " ")
 				for i, arg := range args {
 					args[i] = strings.TrimSpace(arg)
+					args[i] = strings.ReplaceAll(args[i], "${BLOG_PATH}", BLOG_PATH)
+					args[i] = strings.ReplaceAll(args[i], "${KEY_WORD}", KEY_WORD)
+					args[i] = strings.ReplaceAll(args[i], "${NUM}", NUM)
+					args[i] = strings.ReplaceAll(args[i], "${IGNORE}", IGNORE)
 				}
 				log.Println("[search by command] command:", args)
 				cmd := exec.Command(args[0])
@@ -291,19 +291,6 @@ func NewSearcherByBleve(name, brief string, blogIndexer BlogIndexer, config *Con
 			return nil, err
 		}
 		return results, nil
-	}
-	return searcherImpl{
-		f:     f,
-		name:  name,
-		brief: brief,
-	}
-}
-
-// searcher according to big language model
-func NewSearcherByLLM(name, brief string, fileManager FileManager, hideMatcher, privateMatcher GitIgnorer) Searcher {
-	f := func(keyword string, num int) ([]string, error) {
-		// TODO
-		return nil, nil
 	}
 	return searcherImpl{
 		f:     f,
