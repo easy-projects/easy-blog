@@ -35,6 +35,10 @@ func RouteApp(r *gin.Engine, config *pkg.Config, spider *fspider.Spider) {
 	lmt3 := tollbooth.NewLimiter(float64(config.RATE_LIMITE_HOUR), &limiter.ExpirableOptions{DefaultExpirationTTL: time.Hour})     // 每小时最多1000次
 	r.Use(LimitMiddleware(lmt1, lmt2, lmt3))
 	// blog
+	blogLoader := pkg.NewBlogLoader()
+	blogLoader.SetBlogPath(config.BLOG_PATH).SetBlogRouter(config.BLOG_ROUTER)
+	blogLoader.SetHide(hideMatcher).SetPrivate(privateMatcher)
+	blogLoader.SetBlogTemplatePath(config.TEMPLATE_PATH).SetRenderCommand(config.RENDER_COMMAND)
 	blog := r.Group(config.BLOG_ROUTER)
 	blog.Use(PrivateMiddleWare(privateMatcher, config))
 	blog.Use(BlogUpdateMiddleware(blogCache, fileManager, config))
@@ -42,7 +46,7 @@ func RouteApp(r *gin.Engine, config *pkg.Config, spider *fspider.Spider) {
 	if !config.NOT_GEN {
 		blog.Use(GenMiddleWare(blogCache, config))
 	}
-	blog.Use(LoadBlogMiddleware(hideMatcher, privateMatcher, blogCache, config))
+	blog.Use(LoadBlogMiddleware(hideMatcher, privateMatcher, blogCache, blogLoader))
 	blog.GET("/*any")
 
 	// api
@@ -53,7 +57,7 @@ func RouteApp(r *gin.Engine, config *pkg.Config, spider *fspider.Spider) {
 			if pkg.PathMatch(path, hideMatcher, privateMatcher) {
 				continue
 			}
-			blog, err := pkg.LoadBlog(path, hideMatcher, privateMatcher, config)
+			blog, err := blogLoader.LoadBlog(path)
 			if err == nil {
 				blogIndexer.Add(blog)
 			}
@@ -67,7 +71,7 @@ func RouteApp(r *gin.Engine, config *pkg.Config, spider *fspider.Spider) {
 				blogIndexer.Delete(&pkg.BlogItem{Path: path})
 				continue
 			}
-			blog, err := pkg.LoadBlog(path, hideMatcher, privateMatcher, config)
+			blog, err := blogLoader.LoadBlog(path)
 			if err == nil {
 				blogIndexer.Add(blog)
 			} else {
@@ -78,8 +82,8 @@ func RouteApp(r *gin.Engine, config *pkg.Config, spider *fspider.Spider) {
 	api := r.Group(config.API_ROUTER)
 	searchers := map[string]pkg.Searcher{
 		"title":   pkg.NewSearcherByTitle("title", "根据标题编辑距离搜索", spider, hideMatcher, privateMatcher),
-		"content": pkg.NewSearchByContentMatch("content", "根据文本内容匹配搜索", spider, blogCache, hideMatcher, privateMatcher, config),
-		"keyword": pkg.NewSearcherByKeywork("keyword", "根据关键词搜索", spider, blogCache, hideMatcher, privateMatcher, config),
+		"content": pkg.NewSearchByContentMatch("content", "根据文本内容匹配搜索", spider, blogCache, blogLoader),
+		"keyword": pkg.NewSearcherByKeywork("keyword", "根据关键词搜索", spider, blogCache, blogLoader),
 		"bleve":   pkg.NewSearcherByBleve("bleve", "根据bleve搜索", blogIndexer),
 	}
 	for _, plugin := range config.SEARCH_PLUGINS {

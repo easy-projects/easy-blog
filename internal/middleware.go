@@ -85,12 +85,12 @@ func BlogCacheMiddleware(blogCache pkg.Cache) gin.HandlerFunc {
 
 // === handle content ===
 
-func LoadBlogMiddleware(hide, private pkg.GitIgnorer, blogCache pkg.Cache, config *pkg.Config) func(c *gin.Context) {
+func LoadBlogMiddleware(hide, private pkg.GitIgnorer, blogCache pkg.Cache, blogLoader pkg.BlogLoader) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		url := c.Request.URL.Path
-		filePath := config.BLOG_PATH + "/" + url[len(config.BLOG_ROUTER)+1:]
+		filePath := blogLoader.Url2Path(url)
 		log.Println("[load blog] path:", filePath)
-		blog, err := pkg.LoadBlog(filePath, hide, private, config)
+		blog, err := blogLoader.LoadBlog(filePath)
 		if err != nil {
 			c.AbortWithError(http.StatusNotFound, err)
 			return

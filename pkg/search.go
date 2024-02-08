@@ -188,20 +188,21 @@ func NewSearcherByPlugin(plugin SearcherPlugin, hideMatcher, privateMatcher GitI
 }
 
 // searcher according to search-keyword and keywords in meta
-func NewSearcherByKeywork(name, brief string, spider *fspider.Spider, cache Cache, hideMatcher, privateMatcher GitIgnorer, config *Config) Searcher {
+func NewSearcherByKeywork(name, brief string, spider *fspider.Spider, cache Cache, blogLoader BlogLoader) Searcher {
+	var hide, private GitIgnorer = blogLoader.GetHide(), blogLoader.GetPrivate()
 	f := func(keyword string, num int) ([]string, error) {
 		log.Println("[search by keyword] keyword:", keyword)
 		results := make([]string, 0, num)
 		paths := spider.AllPaths()
 		for _, path := range paths {
-			if PathMatch(path, hideMatcher, privateMatcher) {
+			if PathMatch(path, hide, private) {
 				continue
 			}
-			url := config.BLOG_ROUTER + path[len(config.BLOG_PATH):]
+			url := blogLoader.Path2Url(path)
 			blog, found := cache.Get("blog:" + url)
 			var blogItem *BlogItem
 			if !found {
-				blog, err := LoadBlog(path, hideMatcher, privateMatcher, config)
+				blog, err := blogLoader.LoadBlog(path)
 				if err != nil {
 					continue
 				}
@@ -230,11 +231,7 @@ func NewSearcherByKeywork(name, brief string, spider *fspider.Spider, cache Cach
 }
 
 // according to the times of keyword in {content, title, meta}
-func NewSearchByContentMatch(name, brief string, spider *fspider.Spider, cache Cache, hideMatcher, privateMatcher GitIgnorer, config *Config) Searcher {
-	config.RLock()
-	blog_router := config.BLOG_ROUTER
-	blog_path := config.BLOG_PATH
-	config.RUnlock()
+func NewSearchByContentMatch(name, brief string, spider *fspider.Spider, cache Cache, blogLoader BlogLoader) Searcher {
 	f := func(keyword string, num int) ([]string, error) {
 		paths := spider.AllPaths()
 		results := make([]string, 0, num)
@@ -244,14 +241,14 @@ func NewSearchByContentMatch(name, brief string, spider *fspider.Spider, cache C
 		}
 		items := make([]_Item, 0, len(paths))
 		for _, path := range paths {
-			if PathMatch(path, hideMatcher, privateMatcher) {
+			if PathMatch(path, blogLoader.GetHide(), blogLoader.GetPrivate()) {
 				continue
 			}
-			url := blog_router + path[len(blog_path):]
+			url := blogLoader.Path2Url(path)
 			blog, found := cache.Get("blog:" + url)
 			var blogItem *BlogItem
 			if !found {
-				blog, err := LoadBlog(path, hideMatcher, privateMatcher, config)
+				blog, err := blogLoader.LoadBlog(path)
 				if err != nil {
 					continue
 				}
