@@ -83,6 +83,10 @@ func RouteApp(r *gin.Engine, config *pkg.Config, spider *fspider.Spider) {
 		"bleve":   pkg.NewSearcherByBleve("bleve", "根据bleve搜索", blogIndexer),
 	}
 	for _, plugin := range config.SEARCH_PLUGINS {
+		if plugin.Disable {
+			delete(searchers, plugin.Name)
+			continue
+		}
 		searcher := pkg.NewSearcherByPlugin(plugin, hideMatcher, privateMatcher, config)
 		searchers[plugin.Name] = searcher
 	}
