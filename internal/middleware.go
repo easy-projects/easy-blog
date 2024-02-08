@@ -45,27 +45,15 @@ func LimitMiddleware(lmts ...*limiter.Limiter) gin.HandlerFunc {
 	}
 }
 
-// === index ===
-func BlogUpdateMiddleware(blogCache pkg.Cache, fileManager pkg.FileManager, config *pkg.Config) func(c *gin.Context) {
-	return func(c *gin.Context) {
-		url := c.Request.URL.Path
-		path := config.BLOG_PATH + "/" + url[len(config.BLOG_ROUTER)+1:]
-		path = filepath.ToSlash(filepath.Clean(path))
-		if fileManager.Changed(path) {
-			log.Println("[file update] file changed:", path)
-			blogCache.Remove(url)
-			fileManager.SetChanged(path, false)
-		} else {
-			log.Println("[file update] file not changed:", path)
-		}
-	}
-}
-
 // === cache ===
-func BlogCacheMiddleware(blogCache pkg.Cache) gin.HandlerFunc {
+func BlogCacheMiddleware(blogCache pkg.Cache, config *pkg.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		url := c.Request.URL.Path
-		blogI, found := blogCache.Get(url)
+		config.RLock()
+		path := config.BLOG_PATH + "/" + url[len(config.BLOG_ROUTER)+1:]
+		config.RUnlock()
+		path = pkg.SimplifyPath(path)
+		blogI, found := blogCache.Get(path)
 		var contentType string
 		if strings.HasSuffix(c.Request.URL.Path, ".png") || strings.HasSuffix(c.Request.URL.Path, ".jpg") || strings.HasSuffix(c.Request.URL.Path, ".jpeg") {
 			contentType = fmt.Sprintf("image/%s", filepath.Ext(c.Request.URL.Path)[1:])
@@ -73,7 +61,7 @@ func BlogCacheMiddleware(blogCache pkg.Cache) gin.HandlerFunc {
 			contentType = "text/html; charset=utf-8"
 		}
 		if found {
-			log.Println("[cache] hit:", url)
+			log.Println("[cache] hit:", path)
 			blog := blogI.(*pkg.BlogItem)
 			c.Data(http.StatusOK, contentType, []byte(blog.Html))
 			c.Abort()
@@ -85,7 +73,7 @@ func BlogCacheMiddleware(blogCache pkg.Cache) gin.HandlerFunc {
 
 // === handle content ===
 
-func LoadBlogMiddleware(hide, private pkg.GitIgnorer, blogCache pkg.Cache, blogLoader pkg.BlogLoader) func(c *gin.Context) {
+func LoadBlogMiddleware(blogCache pkg.Cache, blogLoader pkg.BlogLoader) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		url := c.Request.URL.Path
 		filePath := blogLoader.Url2Path(url)
@@ -95,7 +83,7 @@ func LoadBlogMiddleware(hide, private pkg.GitIgnorer, blogCache pkg.Cache, blogL
 			c.AbortWithError(http.StatusNotFound, err)
 			return
 		}
-		blogCache.Set(url, blog)
+		blogCache.Set(filePath, blog)
 		file := []byte(blog.Html)
 		c.Data(http.StatusOK, "text/html; charset=utf-8", file)
 	}
@@ -119,16 +107,24 @@ func PrivateMiddleWare(private pkg.GitIgnorer, config *pkg.Config) gin.HandlerFu
 // === handle gen ===
 func GenMiddleWare(blogCache pkg.Cache, config *pkg.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if config.NOT_GEN {
+		config.RLock()
+		not_gen := config.NOT_GEN
+		blogPath := config.BLOG_PATH
+		blogRouter := config.BLOG_ROUTER
+		config.RUnlock()
+
+		if not_gen {
 			return
 		}
 		URL := c.Request.URL.Path
+		path := blogPath + "/" + URL[len(blogRouter)+1:]
+		path = pkg.SimplifyPath(path)
 		c.Next()
 		c.Abort()
 		if c.Writer.Status() == http.StatusOK {
 			gen_path := pkg.GenPath(URL, config)
 			log.Println("[gen] gen:", gen_path)
-			blogI, found := blogCache.Get(URL)
+			blogI, found := blogCache.Get(path)
 			if !found {
 				log.Println("[gen] blog not found in cache:", URL)
 				return

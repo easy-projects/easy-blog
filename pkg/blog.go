@@ -154,7 +154,8 @@ func (loader *blogLoaderImpl) LoadBlog(path string) (*BlogItem, error) {
 func (loader *blogLoaderImpl) Url2Path(url string) string {
 	loader.RLock()
 	defer loader.RUnlock()
-	return loader.blogPath + "/" + url[len(loader.blogRouter):]
+	path := loader.blogPath + "/" + url[len(loader.blogRouter):]
+	return SimplifyPath(path)
 }
 func (loader *blogLoaderImpl) Path2Url(path string) string {
 	loader.RLock()

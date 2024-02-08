@@ -60,6 +60,7 @@ func Serve(config *Config) {
 	spider := fspider.NewSpider()
 	defer spider.Stop()
 	spider.Spide(config.BLOG_PATH)
+	defer spider.Stop()
 	internal.RouteApp(r, config, spider)
 	port := fmt.Sprintf(":%d", config.PORT)
 	if err := r.Run(port); err != nil {
