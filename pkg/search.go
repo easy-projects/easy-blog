@@ -51,7 +51,7 @@ func (s searcherImpl) Brief() string {
 }
 
 // searcher according to title edit distance
-func NewSearcherByTitle(name, brief string, spider *fspider.Spider, hideMatcher, privateMatcher GitIgnorer) Searcher {
+func NewSearcherByTitle(name, brief string, spider fspider.Spider, hideMatcher, privateMatcher GitIgnorer) Searcher {
 	f := func(keyword string, num int) ([]string, error) {
 		paths := spider.AllPaths()
 		results := make([]string, 0, num)
@@ -188,7 +188,7 @@ func NewSearcherByPlugin(plugin SearcherPlugin, hideMatcher, privateMatcher GitI
 }
 
 // searcher according to search-keyword and keywords in meta
-func NewSearcherByKeywork(name, brief string, spider *fspider.Spider, cache Cache, blogLoader BlogLoader) Searcher {
+func NewSearcherByKeywork(name, brief string, spider fspider.Spider, cache Cache, blogLoader BlogLoader) Searcher {
 	var hide, private GitIgnorer = blogLoader.GetHide(), blogLoader.GetPrivate()
 	f := func(keyword string, num int) ([]string, error) {
 		log.Println("[search by keyword] keyword:", keyword)
@@ -231,7 +231,7 @@ func NewSearcherByKeywork(name, brief string, spider *fspider.Spider, cache Cach
 }
 
 // according to the times of keyword in {content, title, meta}
-func NewSearchByContentMatch(name, brief string, spider *fspider.Spider, cache Cache, blogLoader BlogLoader) Searcher {
+func NewSearchByContentMatch(name, brief string, spider fspider.Spider, cache Cache, blogLoader BlogLoader) Searcher {
 	f := func(keyword string, num int) ([]string, error) {
 		paths := spider.AllPaths()
 		results := make([]string, 0, num)

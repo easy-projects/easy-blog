@@ -15,7 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RouteApp(r *gin.Engine, config *pkg.Config, spider *fspider.Spider) {
+func RouteApp(r *gin.Engine, config *pkg.Config, spider fspider.Spider) {
 	blogCache := pkg.NewCache(1000)
 	searcherCache := pkg.NewCache(1000)
 	searcherCacheLock := &sync.RWMutex{}
