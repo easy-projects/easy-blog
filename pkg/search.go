@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cncsmonster/fspider"
 	"github.com/easy-projects/easyblog/pkg/log"
 	"github.com/texttheater/golang-levenshtein/levenshtein"
 )
@@ -26,6 +27,7 @@ type SearcherPlugin struct {
 	Brief   string
 	Type    string
 	Command string
+	Disable bool
 	Url     string
 }
 
@@ -49,9 +51,9 @@ func (s searcherImpl) Brief() string {
 }
 
 // searcher according to title edit distance
-func NewSearcherByTitle(name, brief string, fileManager FileManager, hideMatcher, privateMatcher GitIgnorer) Searcher {
+func NewSearcherByTitle(name, brief string, spider *fspider.Spider, hideMatcher, privateMatcher GitIgnorer) Searcher {
 	f := func(keyword string, num int) ([]string, error) {
-		paths := fileManager.Paths()
+		paths := spider.AllPaths()
 		results := make([]string, 0, num)
 		type _Item struct {
 			path string
@@ -92,8 +94,8 @@ func NewSearcherByTitle(name, brief string, fileManager FileManager, hideMatcher
 	}
 }
 
-// searcher according to plugin
-func NewSearcherByPlugin(plugin SearcherPlugin, fileManager FileManager, hideMatcher, privateMatcher GitIgnorer, config *Config) Searcher {
+// searcher according to plugin ; this func is not thread-safe
+func NewSearcherByPlugin(plugin SearcherPlugin, hideMatcher, privateMatcher GitIgnorer, config *Config) Searcher {
 	var f func(keyword string, num int) ([]string, error)
 	if plugin.Type == "command" {
 		f = func(keyword string, num int) ([]string, error) {
@@ -186,11 +188,11 @@ func NewSearcherByPlugin(plugin SearcherPlugin, fileManager FileManager, hideMat
 }
 
 // searcher according to search-keyword and keywords in meta
-func NewSearcherByKeywork(name, brief string, fileManager FileManager, cache Cache, hideMatcher, privateMatcher GitIgnorer, config *Config) Searcher {
+func NewSearcherByKeywork(name, brief string, spider *fspider.Spider, cache Cache, hideMatcher, privateMatcher GitIgnorer, config *Config) Searcher {
 	f := func(keyword string, num int) ([]string, error) {
 		log.Println("[search by keyword] keyword:", keyword)
 		results := make([]string, 0, num)
-		paths := fileManager.Paths()
+		paths := spider.AllPaths()
 		for _, path := range paths {
 			if PathMatch(path, hideMatcher, privateMatcher) {
 				continue
@@ -228,9 +230,13 @@ func NewSearcherByKeywork(name, brief string, fileManager FileManager, cache Cac
 }
 
 // according to the times of keyword in {content, title, meta}
-func NewSearchByContentMatch(name, brief string, fileManager FileManager, cache Cache, hideMatcher, privateMatcher GitIgnorer, config *Config) Searcher {
+func NewSearchByContentMatch(name, brief string, spider *fspider.Spider, cache Cache, hideMatcher, privateMatcher GitIgnorer, config *Config) Searcher {
+	config.RLock()
+	blog_router := config.BLOG_ROUTER
+	blog_path := config.BLOG_PATH
+	config.RUnlock()
 	f := func(keyword string, num int) ([]string, error) {
-		paths := fileManager.Paths()
+		paths := spider.AllPaths()
 		results := make([]string, 0, num)
 		type _Item struct {
 			path string
@@ -241,7 +247,7 @@ func NewSearchByContentMatch(name, brief string, fileManager FileManager, cache 
 			if PathMatch(path, hideMatcher, privateMatcher) {
 				continue
 			}
-			url := config.BLOG_ROUTER + path[len(config.BLOG_PATH):]
+			url := blog_router + path[len(blog_path):]
 			blog, found := cache.Get("blog:" + url)
 			var blogItem *BlogItem
 			if !found {
@@ -254,7 +260,7 @@ func NewSearchByContentMatch(name, brief string, fileManager FileManager, cache 
 			} else {
 				blogItem = blog.(*BlogItem)
 			}
-			num := strings.Count(blogItem.Md, keyword)
+			num := strings.Count(blogItem.File, keyword)
 			num += strings.Count(blogItem.Meta.Title, keyword)
 			num += strings.Count(blogItem.Meta.Description, keyword)
 			items = append(items, _Item{path: path, num: num})
@@ -284,7 +290,7 @@ func NewSearchByContentMatch(name, brief string, fileManager FileManager, cache 
 }
 
 // searcher according to bleve file index engine
-func NewSearcherByBleve(name, brief string, blogIndexer BlogIndexer, config *Config) Searcher {
+func NewSearcherByBleve(name, brief string, blogIndexer BlogIndexer) Searcher {
 	f := func(keyword string, num int) ([]string, error) {
 		results, err := blogIndexer.Search(keyword, num)
 		if err != nil {

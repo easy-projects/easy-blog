@@ -19,8 +19,22 @@ type BlogItem struct {
 	// Path 作为唯一标识符
 	Path string
 	Meta
-	Md   string
+	Kind int
+	File string
 	Html string
+}
+
+const (
+	BLOG_ITEM_KIND_DIR = 1 << iota
+	BLOG_ITEM_KIND_MD
+	BLOG_ITEM_KIND_OTHER
+)
+
+func (item *BlogItem) IsDir() bool {
+	return (item.Kind & BLOG_ITEM_KIND_DIR) != 0
+}
+func (item *BlogItem) IsMd() bool {
+	return (item.Kind & BLOG_ITEM_KIND_MD) != 0
 }
 
 // === meta data for md ===
@@ -31,12 +45,18 @@ type Meta struct {
 }
 
 func LoadBlog(path string, hide, private GitIgnorer, config *Config) (*BlogItem, error) {
-	// 从文件中加载 blog
+	config.RLock()
+	templatePath := config.TEMPLATE_PATH
+	renderCommand := config.RENDER_COMMAND
+	config.RUnlock()
 	path = SimplifyPath(path)
 	if !fsutil.IsExist(path) {
 		return nil, fmt.Errorf("file not found: %s", path)
 	}
-	var md []byte
+	var blogItemType int
+	var meta Meta
+	var file []byte
+	var html []byte
 	var err error
 	var stat os.FileInfo
 	stat, err = os.Stat(path)
@@ -44,31 +64,36 @@ func LoadBlog(path string, hide, private GitIgnorer, config *Config) (*BlogItem,
 		return nil, err
 	}
 	if stat.IsDir() {
-		md, err = RenderDir(path, hide, private, config)
+		file, err = RenderDir(path, hide, private, config)
+		blogItemType = BLOG_ITEM_KIND_DIR
 	} else if !strings.HasSuffix(path, ".md") && !strings.HasSuffix(path, ".markdown") {
-		err = fmt.Errorf("file is not a markdown file: %s", path)
+		file, err = os.ReadFile(path)
+		blogItemType = BLOG_ITEM_KIND_OTHER
 	} else {
-		md, err = os.ReadFile(path)
+		file, err = os.ReadFile(path)
+		blogItemType = BLOG_ITEM_KIND_MD
 	}
 	if err != nil {
 		return nil, err
 	}
-	meta, err := MdMeta(md)
-	if err != nil {
-		return nil, err
-	}
-	if meta.Title == "" {
-		meta.Title = filepath.Base(path)
-		meta.Title = meta.Title[:len(meta.Title)-len(filepath.Ext(meta.Title))]
-	}
-	html, err := Md2Html(md, meta.Title, config)
-	if err != nil {
-		return nil, err
+	if (blogItemType&BLOG_ITEM_KIND_DIR + blogItemType&BLOG_ITEM_KIND_MD) != 0 {
+		if meta, err = MdMeta(file); err != nil {
+			return nil, err
+		} else if meta.Title == "" {
+			meta.Title = filepath.Base(path)
+			meta.Title = meta.Title[:len(meta.Title)-len(filepath.Ext(meta.Title))]
+		}
+		if html, err = Md2Html(file, meta.Title, templatePath, renderCommand); err != nil {
+			return nil, err
+		}
+	} else {
+		html = file
 	}
 	return &BlogItem{
 		Path: path,
 		Meta: meta,
-		Md:   string(md),
+		Kind: blogItemType,
+		File: string(file),
 		Html: string(html),
 	}, nil
 }
@@ -86,11 +111,11 @@ func MdMeta(md []byte) (meta Meta, err error) {
 // === md2html ===
 
 // use pandoc to convert md to html
-func Md2Html(md []byte, title string, config *Config) (html []byte, err error) {
+func Md2Html(md []byte, title string, templatePath, renderCommand string) (html []byte, err error) {
 	// pandoc -s --template=template.html --toc  --mathjax -f markdown -t html --metadata title="title"
-	args := []string{"pandoc", "-s", "--template=" + config.TEMPLATE_PATH, "--toc", "--mathjax", "-f", "markdown", "-t", "html", "--metadata", "title=" + title}
-	if config.RENDER_COMMAND != "" {
-		args, err = shlex.Split(config.RENDER_COMMAND)
+	args := []string{"pandoc", "-s", "--template=" + templatePath, "--toc", "--mathjax", "-f", "markdown", "-t", "html", "--metadata", "title=" + title}
+	if renderCommand != "" {
+		args, err = shlex.Split(renderCommand)
 		if err != nil {
 			return nil, err
 		}

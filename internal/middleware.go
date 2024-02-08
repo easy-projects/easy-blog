@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 
 	fsutil "github.com/cncsmonster/gofsutil"
 	"github.com/didip/tollbooth"
@@ -17,6 +16,18 @@ import (
 )
 
 // ===== middlewares =====
+
+// === redirect ===
+func RedirectHomePageMiddleware(config *pkg.Config) func(c *gin.Context) {
+	return func(c *gin.Context) {
+		if c.Request.URL.Path == "/" || c.Request.URL.Path == "/favicon.ico" {
+			newUrl := config.BLOG_ROUTER + "/" + c.Request.URL.Path
+			c.Redirect(http.StatusMovedPermanently, newUrl)
+			c.Abort()
+			return
+		}
+	}
+}
 
 // === rate limit ===
 func LimitMiddleware(lmts ...*limiter.Limiter) gin.HandlerFunc {
@@ -35,28 +46,26 @@ func LimitMiddleware(lmts ...*limiter.Limiter) gin.HandlerFunc {
 }
 
 // === index ===
-func FileUpdateMiddleware(cache pkg.Cache, fileManager pkg.FileManager, fileManagerLock *sync.RWMutex, config *pkg.Config) func(c *gin.Context) {
+func BlogUpdateMiddleware(blogCache pkg.Cache, fileManager pkg.FileManager, config *pkg.Config) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		url := c.Request.URL.Path
 		path := config.BLOG_PATH + "/" + url[len(config.BLOG_ROUTER)+1:]
 		path = filepath.ToSlash(filepath.Clean(path))
-		fileManagerLock.Lock()
 		if fileManager.Changed(path) {
 			log.Println("[file update] file changed:", path)
-			cache.Remove("file:" + url)
+			blogCache.Remove(url)
 			fileManager.SetChanged(path, false)
 		} else {
 			log.Println("[file update] file not changed:", path)
 		}
-		fileManagerLock.Unlock()
 	}
 }
 
 // === cache ===
-func FileCacheMiddleware(cache pkg.Cache) gin.HandlerFunc {
+func BlogCacheMiddleware(blogCache pkg.Cache) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		url := c.Request.URL.Path
-		fileI, found := cache.Get("file:" + url)
+		blogI, found := blogCache.Get(url)
 		var contentType string
 		if strings.HasSuffix(c.Request.URL.Path, ".png") || strings.HasSuffix(c.Request.URL.Path, ".jpg") || strings.HasSuffix(c.Request.URL.Path, ".jpeg") {
 			contentType = fmt.Sprintf("image/%s", filepath.Ext(c.Request.URL.Path)[1:])
@@ -65,7 +74,8 @@ func FileCacheMiddleware(cache pkg.Cache) gin.HandlerFunc {
 		}
 		if found {
 			log.Println("[cache] hit:", url)
-			c.Data(http.StatusOK, contentType, fileI.([]byte))
+			blog := blogI.(*pkg.BlogItem)
+			c.Data(http.StatusOK, contentType, []byte(blog.Html))
 			c.Abort()
 			return
 		}
@@ -75,20 +85,18 @@ func FileCacheMiddleware(cache pkg.Cache) gin.HandlerFunc {
 
 // === handle content ===
 
-func LoadBlogMiddleware(hide, private pkg.GitIgnorer, cache pkg.Cache, config *pkg.Config) func(c *gin.Context) {
+func LoadBlogMiddleware(hide, private pkg.GitIgnorer, blogCache pkg.Cache, config *pkg.Config) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		url := c.Request.URL.Path
 		filePath := config.BLOG_PATH + "/" + url[len(config.BLOG_ROUTER)+1:]
 		log.Println("[load blog] path:", filePath)
 		blog, err := pkg.LoadBlog(filePath, hide, private, config)
 		if err != nil {
-			// blog.Html = os.ReadFile(filePath)
-			c.File(filePath)
+			c.AbortWithError(http.StatusNotFound, err)
 			return
 		}
-		cache.Set("blog:"+url, blog)
+		blogCache.Set(url, blog)
 		file := []byte(blog.Html)
-		c.Set("file", []byte(file))
 		c.Data(http.StatusOK, "text/html; charset=utf-8", file)
 	}
 }
@@ -109,16 +117,25 @@ func PrivateMiddleWare(private pkg.GitIgnorer, config *pkg.Config) gin.HandlerFu
 }
 
 // === handle gen ===
-func GenMiddleWare(config *pkg.Config) gin.HandlerFunc {
+func GenMiddleWare(blogCache pkg.Cache, config *pkg.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if config.NOT_GEN {
+			return
+		}
 		URL := c.Request.URL.Path
 		c.Next()
 		c.Abort()
 		if c.Writer.Status() == http.StatusOK {
 			gen_path := pkg.GenPath(URL, config)
 			log.Println("[gen] gen:", gen_path)
-			file := c.MustGet("file").([]byte)
-			if strings.HasSuffix(gen_path, "/") || strings.HasSuffix(gen_path, ".md") || strings.HasSuffix(gen_path, ".md") {
+			blogI, found := blogCache.Get(URL)
+			if !found {
+				log.Println("[gen] blog not found in cache:", URL)
+				return
+			}
+			blog := blogI.(*pkg.BlogItem)
+			var file []byte = []byte(blog.Html)
+			if blog.IsDir() || blog.IsMd() {
 				file = pkg.TransformLinks(file, config)
 			}
 			if err := fsutil.MustWrite(gen_path, file); err != nil {

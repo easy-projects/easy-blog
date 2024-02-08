@@ -26,6 +26,28 @@ func PathMatch(path string, matcher ...GitIgnorer) bool {
 	return false
 }
 
+// 编写一个泛型函数,用来去除一个map中的不符合要求的函数,返回一个新的map
+func FilterMap[T comparable, V any](m map[T]V, f func(T) bool) map[T]V {
+	match := make(map[T]V)
+	for k, v := range m {
+		if f(k) {
+			match[k] = v
+		}
+	}
+	return match
+}
+
+// 编写一个泛型函数,用来去除一个slice中不符合要求的函数,返回修改后的结果,这是一个新的slice
+func FilterSlice[T any](s []T, f func(T) bool) []T {
+	match := make([]T, 0, len(s))
+	for _, v := range s {
+		if f(v) {
+			match = append(match, v)
+		}
+	}
+	return match
+}
+
 // === path generate ===
 func GenPath(url string, config *Config) string {
 	path := config.GEN_PATH + "/" + url[len(config.BLOG_ROUTER)+1:]

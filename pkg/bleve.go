@@ -23,6 +23,7 @@ type blogIndexerImpl struct {
 type BlogIndex struct {
 	Path string
 	Meta
+	File string
 }
 
 // 加入对一个博客内容的索引
@@ -30,7 +31,7 @@ func (bi *blogIndexerImpl) Add(blog *BlogItem) error {
 	if strings.HasPrefix(blog.Path, "/blogg/") {
 		panic("Add can not use blogg")
 	}
-	return bi.Indexer.Index(blog.Path, BlogIndex{Path: blog.Path, Meta: blog.Meta})
+	return bi.Indexer.Index(blog.Path, BlogIndex{Path: blog.Path, Meta: blog.Meta, File: blog.File})
 }
 
 // 删除对一个博客内容的索引
