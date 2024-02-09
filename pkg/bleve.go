@@ -43,10 +43,10 @@ func (bi *blogIndexerImpl) Delete(blog *BlogItem) error {
 }
 
 func NewBlogIndexer(indexPath string) BlogIndexer {
-	index, err := bleve.Open("blog.bleve")
+	index, err := bleve.Open(indexPath)
 	if err != nil {
 		mapping := bleve.NewIndexMapping()
-		index, err = bleve.New("blog.bleve", mapping)
+		index, err = bleve.New(indexPath, mapping)
 		if err != nil {
 			return nil
 		}
