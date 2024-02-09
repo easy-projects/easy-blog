@@ -32,77 +32,22 @@ type BlogItem struct {
 }
 
 // === blog loader ===
-type BlogLoader interface {
-	SetBlogPath(blogPath string) BlogLoader
-	SetBlogRouter(blogRouter string) BlogLoader
-	SetBlogTemplatePath(templatePath string) BlogLoader
-	SetRenderCommand(renderCommand string) BlogLoader
-	SetHide(hide GitIgnorer) BlogLoader
-	SetPrivate(private GitIgnorer) BlogLoader
 
-	GetHide() GitIgnorer
-	GetPrivate() GitIgnorer
-
-	Url2Path(url string) string
-	Path2Url(path string) string
-	LoadBlog(path string) (*BlogItem, error)
-}
-type blogLoaderImpl struct {
+type BlogLoader struct {
 	*sync.RWMutex
-	blogPath      string
-	blogRouter    string
-	templatePath  string
-	renderCommand string
-	hide          GitIgnorer
-	private       GitIgnorer
+	BlogPath      string
+	BlogRouter    string
+	TemplatePath  string
+	RenderCommand string
+	Hide          GitIgnorer
+	Private       GitIgnorer
 }
 
-func NewBlogLoader() BlogLoader {
-	return &blogLoaderImpl{
-		RWMutex: &sync.RWMutex{},
-	}
-}
-func (loader *blogLoaderImpl) SetBlogPath(blogPath string) BlogLoader {
-	loader.Lock()
-	defer loader.Unlock()
-	loader.blogPath = blogPath
-	return loader
-}
-func (loader *blogLoaderImpl) SetBlogRouter(blogRouter string) BlogLoader {
-	loader.Lock()
-	defer loader.Unlock()
-	loader.blogRouter = blogRouter
-	return loader
-}
-func (loader *blogLoaderImpl) SetBlogTemplatePath(templatePath string) BlogLoader {
-	loader.Lock()
-	defer loader.Unlock()
-	loader.templatePath = templatePath
-	return loader
-}
-func (loader *blogLoaderImpl) SetRenderCommand(renderCommand string) BlogLoader {
-	loader.Lock()
-	defer loader.Unlock()
-	loader.renderCommand = renderCommand
-	return loader
-}
-func (loader *blogLoaderImpl) SetHide(hide GitIgnorer) BlogLoader {
-	loader.Lock()
-	defer loader.Unlock()
-	loader.hide = hide
-	return loader
-}
-func (loader *blogLoaderImpl) SetPrivate(private GitIgnorer) BlogLoader {
-	loader.Lock()
-	defer loader.Unlock()
-	loader.private = private
-	return loader
-}
-func (loader *blogLoaderImpl) LoadBlog(path string) (*BlogItem, error) {
+func (loader *BlogLoader) LoadBlog(path string) (*BlogItem, error) {
 	loader.RLock()
 	defer loader.RUnlock()
-	var blogRouter, blogPath, templatePath, renderCommand string = loader.blogRouter, loader.blogPath, loader.templatePath, loader.renderCommand
-	var hide, private GitIgnorer = loader.hide, loader.private
+	var blogRouter, blogPath, templatePath, renderCommand string = loader.BlogRouter, loader.BlogPath, loader.TemplatePath, loader.RenderCommand
+	var hide, private GitIgnorer = loader.Hide, loader.Private
 	path = SimplifyPath(path)
 	if !fsutil.IsExist(path) {
 		return nil, fmt.Errorf("file not found: %s", path)
@@ -151,27 +96,16 @@ func (loader *blogLoaderImpl) LoadBlog(path string) (*BlogItem, error) {
 		Html: string(html),
 	}, nil
 }
-func (loader *blogLoaderImpl) Url2Path(url string) string {
+func (loader *BlogLoader) Url2Path(url string) string {
 	loader.RLock()
 	defer loader.RUnlock()
-	path := loader.blogPath + "/" + url[len(loader.blogRouter):]
+	path := loader.BlogPath + "/" + url[len(loader.BlogRouter):]
 	return SimplifyPath(path)
 }
-func (loader *blogLoaderImpl) Path2Url(path string) string {
+func (loader *BlogLoader) Path2Url(path string) string {
 	loader.RLock()
 	defer loader.RUnlock()
-	return loader.blogRouter + path[len(loader.blogPath):]
-}
-
-func (loader *blogLoaderImpl) GetHide() GitIgnorer {
-	loader.RLock()
-	defer loader.RUnlock()
-	return loader.hide
-}
-func (loader *blogLoaderImpl) GetPrivate() GitIgnorer {
-	loader.RLock()
-	defer loader.RUnlock()
-	return loader.private
+	return loader.BlogRouter + path[len(loader.BlogPath):]
 }
 
 const (

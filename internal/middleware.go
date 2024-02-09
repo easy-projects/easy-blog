@@ -73,7 +73,7 @@ func BlogCacheMiddleware(blogCache pkg.Cache, config *pkg.Config) gin.HandlerFun
 
 // === handle content ===
 
-func LoadBlogMiddleware(blogCache pkg.Cache, blogLoader pkg.BlogLoader) func(c *gin.Context) {
+func LoadBlogMiddleware(blogCache pkg.Cache, blogLoader *pkg.BlogLoader) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		url := c.Request.URL.Path
 		filePath := blogLoader.Url2Path(url)

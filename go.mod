@@ -3,7 +3,7 @@ module github.com/easy-projects/easyblog
 go 1.21.6
 
 require (
-	github.com/cncsmonster/fspider v0.0.7
+	github.com/cncsmonster/fspider v0.0.8
 	github.com/didip/tollbooth v4.0.2+incompatible
 	github.com/gin-contrib/cors v1.5.0
 	github.com/gin-gonic/gin v1.9.1

@@ -21,12 +21,19 @@ func RouteApp(r *gin.Engine, config *pkg.Config, spider fspider.Spider) {
 	searcherCacheLock := &sync.RWMutex{}
 	hideMatcher := pkg.NewBlogIgnorer().AddPatterns(config.HIDE_PATHS...)
 	privateMatcher := pkg.NewBlogIgnorer().AddPatterns(config.PRIVATE_PATHS...)
-	blogLoader := pkg.NewBlogLoader()
-	blogLoader.SetBlogPath(config.BLOG_PATH).SetBlogRouter(config.BLOG_ROUTER)
-	blogLoader.SetHide(hideMatcher).SetPrivate(privateMatcher)
-	blogLoader.SetBlogTemplatePath(config.TEMPLATE_PATH).SetRenderCommand(config.RENDER_COMMAND)
+	blogLoader := &pkg.BlogLoader{
+		RWMutex:       &sync.RWMutex{},
+		BlogPath:      config.BLOG_PATH,
+		BlogRouter:    config.BLOG_ROUTER,
+		TemplatePath:  config.TEMPLATE_PATH,
+		RenderCommand: config.RENDER_COMMAND,
+		Hide:          hideMatcher,
+		Private:       privateMatcher,
+	}
+
 	go func() {
-		for path := range spider.FilesChanged() {
+		Changed := spider.FilesChanged()
+		for path := range Changed {
 			path = pkg.SimplifyPath(path)
 			log.Println("[cache] remove:", path)
 			blogCache.Remove(path)
@@ -54,7 +61,8 @@ func RouteApp(r *gin.Engine, config *pkg.Config, spider fspider.Spider) {
 				blogIndexer.Add(blog)
 			}
 		}
-		for path := range spider.FilesChanged() {
+		Changed := spider.FilesChanged()
+		for path := range Changed {
 			searcherCacheLock.Lock()
 			searcherCache.RemoveAll()
 			searcherCacheLock.Unlock()

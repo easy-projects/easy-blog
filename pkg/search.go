@@ -188,8 +188,8 @@ func NewSearcherByPlugin(plugin SearcherPlugin, hideMatcher, privateMatcher GitI
 }
 
 // searcher according to search-keyword and keywords in meta
-func NewSearcherByKeywork(name, brief string, spider fspider.Spider, cache Cache, blogLoader BlogLoader) Searcher {
-	var hide, private GitIgnorer = blogLoader.GetHide(), blogLoader.GetPrivate()
+func NewSearcherByKeywork(name, brief string, spider fspider.Spider, cache Cache, blogLoader *BlogLoader) Searcher {
+	var hide, private GitIgnorer = blogLoader.Hide, blogLoader.Private
 	f := func(keyword string, num int) ([]string, error) {
 		log.Println("[search by keyword] keyword:", keyword)
 		results := make([]string, 0, num)
@@ -231,7 +231,7 @@ func NewSearcherByKeywork(name, brief string, spider fspider.Spider, cache Cache
 }
 
 // according to the times of keyword in {content, title, meta}
-func NewSearchByContentMatch(name, brief string, spider fspider.Spider, cache Cache, blogLoader BlogLoader) Searcher {
+func NewSearchByContentMatch(name, brief string, spider fspider.Spider, cache Cache, blogLoader *BlogLoader) Searcher {
 	f := func(keyword string, num int) ([]string, error) {
 		paths := spider.AllPaths()
 		results := make([]string, 0, num)
@@ -241,7 +241,7 @@ func NewSearchByContentMatch(name, brief string, spider fspider.Spider, cache Ca
 		}
 		items := make([]_Item, 0, len(paths))
 		for _, path := range paths {
-			if PathMatch(path, blogLoader.GetHide(), blogLoader.GetPrivate()) {
+			if PathMatch(path, blogLoader.Hide, blogLoader.Private) {
 				continue
 			}
 			url := blogLoader.Path2Url(path)
