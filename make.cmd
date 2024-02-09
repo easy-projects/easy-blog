@@ -21,14 +21,7 @@ goto :eof
     @REM 构建构建工具
     go build ./cmd/ebbuilder
     @REM 使用构建工具构建 代码资源
-    ebbuilder --template ./build_resources/template.html ^
-        --config ./build_resources/eb.yaml ^
-        --intro ./build_resources/intro.md ^
-        --hide ./build_resources/hide.md ^
-        --private ./build_resources/private.md ^
-        --help ./build_resources/help ^
-        --version ./build_resources/version ^
-        --output ./cmd/eb/resources.go
+    ebbuilder.exe
     del ebbuilder.exe
     echo Done.
     goto :eof

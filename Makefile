@@ -6,14 +6,7 @@ preprocess:
 	echo "using makefile"
 	@echo "Preprocessing..."
 	go build ./cmd/ebbuilder
-	./ebbuilder --template ./build_resources/template.html \
-		--config ./build_resources/eb.yaml \
-		--intro ./build_resources/intro.md \
-		--hide ./build_resources/hide.md \
-		--private ./build_resources/private.md \
-		--help ./build_resources/help \
-		--version ./build_resources/version \
-		--output ./cmd/eb/resources.go
+	./ebbuilder 
 	@-rm -f ebbuilder
 	@-del  .\ebbuilder.exe
 	@echo "Done."

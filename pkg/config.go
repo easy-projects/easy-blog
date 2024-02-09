@@ -1,18 +1,17 @@
 package pkg
 
 import (
-	"os"
 	"sync"
 
+	"github.com/BurntSushi/toml"
 	fsutil "github.com/cncsmonster/gofsutil"
 	"github.com/easy-projects/easyblog/pkg/log"
-	"gopkg.in/yaml.v2"
 )
 
 // ====== config =====
 
 type Config struct {
-	sync.RWMutex   `yaml:"-"`
+	sync.RWMutex   `yaml:"-" toml:"-" json:"-"`
 	PORT           int
 	BLOG_ROUTER    string
 	API_ROUTER     string
@@ -35,14 +34,17 @@ type Config struct {
 
 func LoadConfig(file string) *Config {
 	var config Config
-	// load config from yaml
-	data, err := os.ReadFile(file)
-	if err != nil {
-		log.Fatal(err)
+	if _, err := toml.DecodeFile(file, &config); err != nil {
+		log.Fatal("[config] toml decode error:", err)
 	}
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		log.Fatal(err)
-	}
+	// // load config from yaml
+	// data, err := os.ReadFile(file)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// if err := yaml.Unmarshal(data, &config); err != nil {
+	// 	log.Fatal(err)
+	// }
 	config.BLOG_PATH = SimplifyPath(config.BLOG_PATH)
 	config.GEN_PATH = SimplifyPath(config.GEN_PATH)
 	if config.BLOG_ROUTER == "" {

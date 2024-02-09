@@ -30,7 +30,7 @@ func main() {
 	case "-n":
 		New()
 	case "-s":
-		Serve(pkg.LoadConfig("eb.yaml"))
+		Serve(pkg.LoadConfig("eb.toml"))
 	case "-v":
 		Version()
 	default:

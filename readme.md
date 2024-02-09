@@ -4,10 +4,14 @@ a easy to use blog project,
 
 ## Install
 
-
 ### from source
 ```
 git clone https://github.com/easy-projects/
+
+## on windows
+make install
+## on linux
+make install
 
 ```
 
